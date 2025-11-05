@@ -1,8 +1,8 @@
 # ==============================================================
-#   SimulateNL1DWave.jl
+#   Simulate1DWave.jl
 # ==============================================================
 #
-# Project: VirusImmmuneCoEvolution (M2 Internship - PhD)
+# Project: punctuatedCoevolution (M2 Internship - PhD)
 # Author: Max Zayas Orihuela (maxzyas@gmail.com)
 # Supervisors: Aleksandra Walczak, Thierry Mora
 # Last update: 19/05/2025
@@ -17,37 +17,6 @@ using Distributions, Plots, StatsBase, Interpolations, Tables, CSV, SparseArrays
 # ====================================================================
 #                   Useful functions
 # ====================================================================
-
-# Convolution padding the vector with zeros to keep  same size : @btime = 17.610 ms for xVector of length 2000, kernel of length 101
-function xconvPadding(xVector, convKernel) 
-    len = length(xVector)
-    out = zeros(Float64, len)
-    for i in eachindex(xVector)
-        out += padKernel(convKernel, i, len).*xVector[i]
-    end
-    out
-end
-
-# Convolution using the standard algorithm : @btime = 678.278 micros for xVector of length 2000, kernel of length 101
-function xconvSumming(xVector, convKernel) 
-    xLen = length(xVector)
-    kernelLen = length(convKernel)
-    kernelMidIndex::Int = ceil(kernelLen/2)
-    [sum(xVector[max(i - (kernelMidIndex - 1), 1):min(i + (kernelMidIndex - 1), end)] .* convKernel[max(kernelMidIndex + 1 - i, 1) : min(xLen - i + kernelMidIndex, end)]) for i in eachindex(xVector)]
-end
-
-function padKernel(kernel, idx, len)
-    kernelLen = length(kernel)
-    kernelMidIndex::Int = ceil(kernelLen/2)
-    if idx < kernelMidIndex
-        out = [kernel[kernelMidIndex - idx + 1:end]; zeros(len - idx + 1 - kernelMidIndex)]
-    elseif len - idx < kernelMidIndex
-        out = [zeros(idx - kernelMidIndex); kernel[1:kernelMidIndex + (len - idx)]]
-    else 
-        out = [zeros(idx - kernelMidIndex); kernel; zeros(len - idx + 1 - kernelMidIndex)]
-    end
-    out
-end
 
 # General case
 function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::Distribution{Univariate, Continuous})
@@ -171,10 +140,6 @@ D = mutationRate*mutationScale^2/2  # Difusion coeff
 boundaryConditions = Dict([(1, "bounded"), (2, "reflecting"), (3, "absorbing")])
 bc = 3
 
-# immune finite memory
-useFiniteMemory::Bool = 0
-useFiniteMemory && (M::Int = 4)
-
 # =================================================
 # Initialisation
 # =================================================
@@ -229,7 +194,7 @@ for i in 2:length(t)
     
     # Virus growth
     local c = conv(hxLoc, Hkernel)[HkernelHalfLength + 1: end - HkernelHalfLength]
-    local R = (useFiniteMemory ? R0 .* (1 .- c ./ M) .^ M : R0 .* exp.(-c ./ Nh))
+    local R = R0 .* exp.(-c ./ Nh)
     nxGrowth = rand.(Poisson.(R .* nxLoc .* dt))
     nxDeath = rand.(Poisson.(nxLoc .* dt))
     global nxLoc .= max.(nxLoc .+ nxGrowth .- nxDeath, 0)
@@ -244,7 +209,6 @@ for i in 2:length(t)
     # Immune evolution
     hxLocGrowth = rand.(Poisson.(nxLoc.*(dt)))
     global hxLoc += hxLocGrowth
-    useFiniteMemory && (hxLoc -= immuneDeaths(hxLoc, sum(hxLocGrowth)))d # 4.451 ms (N(t)*dt ~ 1e3)
 
     # Sampling
     xt[i] = sum(nxLoc.*x)/Nt[i]
@@ -272,9 +236,9 @@ NxtTable = Tables.table([t xt Nt], header = ["t", "xt", "Nt"])
 xnxTable = Tables.table([x transpose(nx)], header = ["x"; ["t = $(t)" for t in tSampled]])
 hxTable = Tables.table(transpose(hx), header = ["t = $(t)" for t in tSampled])
 
-boundaryCondition = boundaryConditions[bc]
+# boundaryCondition = boundaryConditions[bc]
 
-dir = (useFiniteMemory ? "simulations/1DNonlocalVirusImmuneWave/" * "finiteMemory/" * dist * "/" * boundaryCondition * "/xSize$(xmax)" * "/ViralImmuneWave_dt$(dt)_N0$(theoreticalN0 ? "theo" : N0)_Nh$(Nh)_M$(M)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)" : "simulations/1DNonlocalVirusImmuneWave/" * "infiniteMemory/" * dist * "/" * boundaryCondition * "/xSize$(xmax)" * "/ViralImmuneWave_dt$(dt)_N0$(theoreticalN0 ? "theo" : N0)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)")
+dir = ("simulations/1D/" * dist * "/dt$(dt)_N0$(theoreticalN0 ? "theo" : N0)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_xSize$(xmax)")
 isdir(dir) || mkpath(dir)
 
 fileNxt = "Nxt.csv"
