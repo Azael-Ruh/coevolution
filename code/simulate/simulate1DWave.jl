@@ -101,25 +101,25 @@ end
 # =======================================
 
 dt = 0.1
-R0 = 1.02
-r = 1
+R0 = 4
+r = 40
 Nh::Int = 1e6
 theoreticalN0::Bool = 0
-theoreticalN0 || (N0::Int = 3e4)
+theoreticalN0 || (N0::Int = 1e4)
 rInt::Int = ceil(r)
-H(x) = exp.(-abs.(x)/r) 
+H(x) = exp.(-abs.(x)/r)
 Hkernel = H(-5*rInt:5*rInt)
 HkernelHalfLength::Int = floor(length(Hkernel)/2)
 
 # Mutation parameters
-mutationRate = 4
+mutationRate = 0.5
 mutationAv = 0
-mutationScale = 5
+mutationScale = 1
 
-mutationKernel = Normal(mutationAv, mutationRate)   
+mutationKernel = Normal(mutationAv, mutationScale)   
 kernelType = string(typeof(mutationKernel))
-nonLocalMutProb = 1e-6
-nonLocalJump = 70
+nonLocalMutProb = 0
+nonLocalJump = 0
 
 localKernel = Normal(mutationAv, mutationScale)
 localKernelType = string(typeof(localKernel))
@@ -207,8 +207,8 @@ for i in 2:length(t)
     global nxLoc = nxLoc - Array(nxMutated) + Array(sum(nxJump)) # Move mutated viruses
     
     # Immune evolution
-    hxLocGrowth = rand.(Poisson.(nxLoc.*(dt)))
-    global hxLoc += hxLocGrowth
+    # hxLocGrowth = rand.(Poisson.(nxLoc.*(dt))) # Random production of memories
+    global hxLoc += nxDeath # Whenever someone recovers it means it has developped immunity
 
     # Sampling
     xt[i] = sum(nxLoc.*x)/Nt[i]
@@ -238,7 +238,7 @@ hxTable = Tables.table(transpose(hx), header = ["t = $(t)" for t in tSampled])
 
 # boundaryCondition = boundaryConditions[bc]
 
-dir = ("simulations/1D/" * dist * "/dt$(dt)_N0$(theoreticalN0 ? "theo" : N0)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_xSize$(xmax)")
+dir = "simulations/1D/" * dist * "/dt$(dt)_N0$(theoreticalN0 ? "theo" : N0)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_xSize$(xmax)"
 isdir(dir) || mkpath(dir)
 
 fileNxt = "Nxt.csv"
