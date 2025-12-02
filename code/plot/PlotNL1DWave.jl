@@ -55,10 +55,9 @@ nx = CSV.read(joinpath(dir, filexnx), CSV.Tables.matrix)
 x = nx[:, 1]
 nx = transpose(nx[:, 2:end])
 hx = transpose(CSV.read(joinpath(dir, filehx), CSV.Tables.matrix))
-rhox = hx ./ sum(hx, dims=2)
 
 nx0 = nx[1, :]
-rhox0 = rhox[1, :]
+hx0 = hx[1, :]
 Nt0 = Nt[1]
 
 x = range(xmax - length(nx0) + 1, xmax)
@@ -96,8 +95,8 @@ hStd = std(hx[end,Int.(round.(xt[idxTransient:maxIdx]))], mean = hAverage)
 
 p0 = plot(x, nx0 ./ Nt0, colour=:lightsalmon, title="Virus-immune chasing, " * raw"$r = " * "$(r)," * raw"R_0 = " * "$(R0)" * raw"$" * (!fastAbsorption ? ",\n" * raw"$\bar{v} = " * "$(round(vAverage, sigdigits= 2))" * raw"\pm" * "$(round(vStd, sigdigits= 1))," * raw"\bar{N} = " * "$(Int(round(NAverage, sigdigits=2)))" * raw"\pm" * "$(Int(round(NStd, sigdigits= 1)))" * raw"$" * "\n" * raw"$\bar{h}=" * "$(Int(round(hAverage, sigdigits=2)))" * raw"\pm" * "$(Int(round(hStd, sigdigits= 1)))"  *  raw".$" : raw".") , ylabel=raw"$n(x)/N(t), \rho(x)$", xlabel="x", top_margin=20Plots.px, label=raw"$n(x)/N(t)$ initial condition", legend_position=:topright)
 plot!(x, nx[end, :] ./ Nt[end], colour=:coral, label=raw"$n(x)/N(t)$ final distribution")
-plot!(x, rhox0, colour=:lightsteelblue, label=raw"$\rho(x)$ initial condition")
-plot!(x, rhox[end, :], colour=:steelblue, label=raw"$\rho(x)$ final distribution")
+plot!(x, hx0./Nh, colour=:lightsteelblue, label=raw"$\rho(x)$ initial condition")
+plot!(x, hx[end, :]./Nh, colour=:steelblue, label=raw"$\rho(x)$ final distribution")
 
 p1 = plot(t, Nt, color=:steelblue4, ylabel=raw"$N(t)$", xlabel=raw"$t$")
 hline!(p1, [NAverage], color = :black, ls = :dash)
@@ -127,9 +126,9 @@ Hkernel = H(-5*rInt:5*rInt)
 c = conv(hx[idx, :], Hkernel)[HkernelHalfLength + 1: end - HkernelHalfLength]
 f =   R0 .* exp.(-c ./ Nh) .- 1
 
-p1 = plot(x[extendedRange], hx[idx, extendedRange] ./ Nh, colour=:steelblue, ylabel=raw"$n(x,t)/N(t),\quad f(t)\mathrm{\,\,(a.u.)}$", xlabel=raw"$x$", label=raw"$n(x)/N(t)$", legend_position=:right, leftmarign = 20Plots.pt, rightmargin = 20Plots.pt, lw=2, frame = :semi)
-plot!(x[extendedRange], nx[idx, extendedRange] ./ NtSampled[idx], colour=:orangered, ylabel = raw"Densities", lw=2, label=raw"$h(x)/N_h$")
-plot!([], [], label=raw"$f(x)$", colour=:lightsalmon, lw = 2)
+p1 = plot(x[extendedRange], hx[idx, extendedRange] ./ Nh, colour=:steelblue, xlabel=raw"$x$", label=raw"$h(x,t)/N_h$", legend_position=:right, leftmarign = 20Plots.pt, rightmargin = 20Plots.pt, lw=2, frame = :semi)
+plot!(x[extendedRange], nx[idx, extendedRange] ./ NtSampled[idx], colour=:orangered, ylabel = raw"Densities", lw=2, label=raw"$n(x,t)/N(t)$")
+plot!([], [], label=raw"$f(x,t)/R_0$", colour=:lightsalmon, lw = 2)
 plot!(twinx(), x[extendedRange], f[extendedRange] ./ R0, colour=:lightsalmon, lw=2, ylabel = raw"$f(x,t)/R_0$", frame = :semi)
 plot!(widen = :false)
 hline!([ylims(p1)[2]], lc=:black, lw=1.5)
@@ -138,21 +137,6 @@ p = plot(p1, foreground_color_legend = nothing)
 display(p)
 
 savefig(p, joinpath(figDir, "WaveShape.png"))
-
-# # Animation of the wave evolution
-
-# anim = @animate for i in 1:(isAbsorbed ? min(idxAbsorbedSampled + 100, size(nx)[1])  : size(nx)[1])
-#     p = plot(x, nx[i, :] ./ NtSampled[i], colour=:coral, ylims=[0, 0.2], ylabel=raw"$n(x,t)/N(t), \rho(x,t)$", xlabel=raw"$x$")
-#     plot!(x, rhox[i, :], colour = :steelblue, background_color_legend = :white)
-#     pTwinx = twinx()
-#     plot!(pTwinx, [], [], color = :coral, label = raw"$n(x,t)/N(t)$")
-#     plot!(pTwinx, [], [], color = :steelblue, label = raw"$\rho(x,t)$")
-#     plot!(pTwinx, xtSampled[1:min(i,findlast(NtSampled .> 0))], NtSampled[1:min(i,findlast(NtSampled .> 0))], color = :grey, label=raw"$N(t)$", legend_position = :topleft, ylims=[1, maximum(NtSampled)], yaxis=:log, ylabel=raw"$N(t)$")
-# end
-
-# g = gif(anim, joinpath(figDir, "ViralImmuneWaveAnimation.gif"), fps=30*Int(round(5/dtSampling)))
-# display(g)
-
 
 # Animation of the wave evolution without normalising n(x)
 
@@ -163,5 +147,5 @@ animNonNorm = @animate for i in 1:(isAbsorbed ? min(idxAbsorbedSampled + 100, si
     plot!([], [], color = :steelblue, label = raw"$h(x,t)/N_h$", legend_pos = :topright)
 end
 
-g = gif(animNonNorm, joinpath(figDir, "ViralImmuneWaveAnimationNoNormalised.gif"), fps = 30)
+g = gif(animNonNorm, joinpath(figDir, "ViralImmuneWaveAnimationNoNormalised.gif"))
 display(g)
