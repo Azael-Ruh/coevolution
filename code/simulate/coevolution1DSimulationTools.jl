@@ -206,7 +206,11 @@ function simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tma
 
     # Cross-reactivity Kernel definition
     H(x) = exp.(-abs.(x)/r)
-    Hkernel = H(-5*ceil(r):5*ceil(r))
+    if r == 0
+        Hkernel = [1]
+    else
+        Hkernel = H(-5*ceil(r):5*ceil(r))
+    end
     HkernelHalfLength::Int = floor(length(Hkernel)/2)
 
     # Variable initialisation
@@ -252,7 +256,7 @@ function simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tma
     return (nx, hx)
 end
 
-function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax)
+function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax, initialisation::String)
     
     x = xmax-size(nx)[2]+1:xmax
     Nt = vec(sum(nx, dims = 2))
@@ -265,7 +269,7 @@ function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, x
 
     dist = kernType(mutationKernel)
 
-    dir = "simulations/1D/" * dist * "/dt$(dt)_N0$(theoreticalN0 ? "theo" : N0)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)"
+    dir = "simulations/1D/" * dist * "/dt$(dt)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_" * initialisation
     isdir(dir) || mkpath(dir)
 
     fileNxt = "Nxt.csv"
@@ -277,7 +281,7 @@ function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, x
     CSV.write(joinpath(dir, filehx), hxTable)
 end
 
-function plotSimulationSummary(nx, hx, xmax; tTransient = 100, dtSampling = 1)
+function plotSimulationSummary(nx, hx, xmax, r, R0; tTransient = 100, dtSampling = 1)
 
     x = xmax-size(nx)[2]+1:xmax
     Nt = vec(sum(nx, dims = 2))
@@ -310,26 +314,26 @@ function plotSimulationSummary(nx, hx, xmax; tTransient = 100, dtSampling = 1)
 
     # Produce the plots!
     # First plot: initial and final condition
-    p0 = plot(x, nx0 ./ Nt0, colour=:lightsalmon, title="Virus-immune chasing, " * raw"$r = " * "$(r)," * raw"R_0 = " * "$(R0)" * raw"$" * (!fastAbsorption ? ",\n" * raw"$\bar{v} = " * "$(round(vAverage, sigdigits= 2))" * raw"\pm" * "$(round(vStd, sigdigits= 1))," * raw"\bar{N} = " * "$(Int(round(NAverage, sigdigits=2)))" * raw"\pm" * "$(Int(round(NStd, sigdigits= 1)))" * raw"$" * "\n" * raw"$\bar{h}=" * "$(Int(round(hAverage, sigdigits=2)))" * raw"\pm" * "$(Int(round(hStd, sigdigits= 1)))"  *  raw".$" : raw".") , ylabel=raw"Distributions", xlabel="x", top_margin=20Plots.px, label=raw"$n(x,0)/N(0)$", legend_position=:topright)
+    p0 = plot(x, nx0 ./ Nt0, colour=:lightsalmon, title="Virus-immune chasing, " * raw"$r = " * "$(r)," * raw"R_0 = " * "$(R0)" * raw"$" * (!fastAbsorption ? ",\n" * raw"$\bar{v} = " * "$(round(vAverage, sigdigits= 2))" * raw"\pm" * "$(round(vStd, sigdigits= 1))," * raw"\bar{N} = " * "$(Int(round(NAverage, sigdigits=2)))" * raw"\pm" * "$(Int(round(NStd, sigdigits= 1)))" * raw"$" * "\n" * raw"$\bar{h}=" * "$(Int(round(hAverage, sigdigits=2)))" * raw"\pm" * "$(Int(round(hStd, sigdigits= 1)))"  *  raw".$" : raw".") , ylabel=raw"Distributions", xlabel="x", top_margin=20Plots.px, label=raw"$n(x,0)/N(0)$", legend_position=:topright, fg_legend = :transparent)
     plot!(x, nx[end, :] ./ Nt[end], colour=:coral, label=raw"$n(x,T)/N(T)$")
-    plot!(x, hx0./Nh, colour=:lightsteelblue, label=raw"$h(x,0)/N_h$")
-    plot!(x, hx[end, :]./Nh, colour=:steelblue, label=raw"$h(x,T)/Nh$")
+    plot!(x, 2 * maximum(nx[end,:] ./ Nt[end]) * hx0./(NAverage/vAverage), colour=:lightsteelblue, label=raw"$\propto h(x,0)/(\bar{N}/\bar{v})$")
+    plot!(x, 2 * maximum(nx[end,:] ./ Nt[end]) * hx[end, :]./(NAverage/vAverage), colour=:steelblue, label=raw"$\propto h(x,T)/(\bar{N}/\bar{v})$")
 
     # Second and third, size and position
     p1 = plot(t, Nt, color=:steelblue4, ylabel=raw"$N(t)$", xlabel=raw"$t$")
-    hline!(p1, [NAverage], color = :black, ls = :dash)
+    hline!(p1, [NAverage], color = :black, ls = :dash, legend_position = :none)
     # hline!(p1, [NAverage + NStd], color = :gray, ls = :dash)
     # hline!(p1, [NAverage - NStd], color = :gray, ls = :dash)
-    p2 = plot(t, xt, color=:coral, ylabel=raw"$\bar{x}(t)$", xlabel=raw"$t$")
+    p2 = plot(t, xt, color=:coral, ylabel=raw"$\bar{x}(t)$", xlabel=raw"$t$", legend_position = :none)
 
     # Fourth plot: immune landscape
     p3 = plot(x[hx[end, :].!=0], hx[end, :][hx[end, :].!=0], color=:steelblue, ylabel=raw"$h(x)$", xlabel=raw"$x$")
-    hline!(p3, [hAverage], color = :black, ls = :dash)
+    hline!(p3, [hAverage], color = :black, ls = :dash, legend_position = :none)
     # hline!(p3, [hAverage + hStd], color = :gray, ls = :dash)
     # hline!(p3, [hAverage - hStd], color = :gray, ls = :dash)
 
     # Last plot: speed
-    p4 = plot(t[2:end-1], v, color = :coral, ylabel = raw"$v(t)$", xlabel = raw"$t$", xlims = (t[1], t[end]), ylims = (minimum(v[1:(fastAbsorption ? end : maxIdx)]), maximum(v[1:(fastAbsorption ? end : maxIdx)])))
+    p4 = plot(t[2:end-1], v, color = :coral, ylabel = raw"$v(t)$", xlabel = raw"$t$", xlims = (t[1], t[end]), ylims = (minimum(v[1:(fastAbsorption ? end : maxIdx)]), maximum(v[1:(fastAbsorption ? end : maxIdx)])), legend_position = :none)
     hline!(p4, [vAverage], color = :black, ls = :dash)
     # hline!(p4, [vAverage + vStd], color = :gray, ls = :dash)
     # hline!(p4, [vAverage - vStd], color = :gray, ls = :dash)
