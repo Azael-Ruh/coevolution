@@ -256,7 +256,7 @@ function simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tma
     return (nx, hx)
 end
 
-function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax, initialisation::String)
+function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax, initialisation::String; baseFolder = "")
     
     x = xmax-size(nx)[2]+1:xmax
     Nt = vec(sum(nx, dims = 2))
@@ -269,7 +269,7 @@ function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, x
 
     dist = kernType(mutationKernel)
 
-    dir = "simulations/1D/" * dist * "/dt$(dt)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_" * initialisation
+    dir = baseFolder * "simulations/1D/" * dist * "/dt$(dt)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_" * initialisation
     isdir(dir) || mkpath(dir)
 
     fileNxt = "Nxt.csv"
