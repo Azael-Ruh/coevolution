@@ -103,7 +103,7 @@ function initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh)
 end
 
 function vNEquation(vN, Nh, s, D)
-    return [vN[2] - Nh*s*vN[1], vN[1] - D^(2/3)*s^(1/3)*(24log(vN[2]*(D*s^2)^(1/3)))^(1/3)]
+    return [vN[2] - Nh*s*vN[1], vN[1] - D^(2/3)*s^(1/3)*(24max(log(max(vN[2]*(D*s^2)^(1/3),0)),0))^(1/3)]
 end
 
 function extinctionFlag(nx, x)
@@ -150,18 +150,21 @@ function getSteadyStateEstimate(R0, r, mutRate, mutKernel, Nh)
 
     # First calculation assuming linear fitness
     v0 = D^(2/3)*s^(1/3)*(24log(Nh/1000*(D*s^2)^(1/3)))^(1/3)
-    N0 = round(Nh * v0 / s)
+    N0 = round(Nh * v0 * s)
+    if N0 < 1000
+        sigma = sqrt(v0 / s)
+        return (N0, v0, sigma)
     vNFunction = vN -> vNEquation(vN, Nh, s, D)
     (v0, N0) = nlsolve(vNFunction, [v0, N0]).zero
 
     sigma = sqrt(v0 / s)
 
     if r > sigma 
-        return (N0, v0, sigma)
+        return (max(N0,50), max(v0,10^-3), sigma)
     else
         v0 = 2*sqrt(D*(R0-1))
         N0 = v0*Nh*s
-        return (N0, v0, sigma)
+        return (max(N0,50), max(v0,10^-3), sigma)
     end
 
 end
