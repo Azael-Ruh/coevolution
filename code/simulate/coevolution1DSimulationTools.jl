@@ -271,7 +271,7 @@ function simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tma
     return (nx, hx)
 end
 
-function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax, initialisation::String; baseFolder = "")
+function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax, initialisation::String; baseFolder = "", fileAppend = "")
     
     x = xmax-size(nx)[2]+1:xmax
     Nt = vec(sum(nx, dims = 2))
@@ -284,18 +284,120 @@ function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, x
 
     dist = kernType(mutationKernel) * "$(std(mutationKernel))"
 
-    dir = baseFolder * "simulations/1D/" * dist * "/dt$(dt)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_" * initialisation
+    dir = baseFolder * "simulations/1D/" * dist * "/dt$(dt)_dtSamp$(dtSampling)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_" * initialisation
     isdir(dir) || mkpath(dir)
 
-    fileNxt = "Nxt.csv"
-    filexnx = "xnx_dtSampling$(dtSampling).csv"
-    filehx = "hx_dtSampling$(dtSampling).csv"
+    fileNxt = "Nxt" * fileAppend * ".csv"
+    filexnx = "xnx" * fileAppend * ".csv"
+    filehx = "hx" * fileAppend * ".csv"
 
     CSV.write(joinpath(dir, fileNxt), NxtTable)
     CSV.write(joinpath(dir, filexnx), xnxTable)
     CSV.write(joinpath(dir, filehx), hxTable)
 
     println("Saved files in folder $dir")
+end
+
+# ====================================================================
+#                   Data analysis tools
+# ====================================================================
+
+function producePhaseMatrixes(R0Vect, rVect, runs, Nh, mutationRate, mutationKernel, tmax, dt, dtSampling, initialisation; tTransient = 100, bFolder = "")
+
+    survivalProb = zeros((length(R0Vect), length(rVect)))
+    vAverage = zeros((length(R0Vect), length(rVect)))
+    vStd = zeros((length(R0Vect), length(rVect)))
+    NAverage = zeros((length(R0Vect), length(rVect)))
+    NStd = zeros((length(R0Vect), length(rVect)))
+
+    for i in eachindex(R0Vect), j in eachindex(rVect), run in runs
+        
+        idxTransient = Int(tTransient / dt) + 1
+        t, xt, Nt = loadSimulationNxtData(R0Vect[i], rVect[j], Nh, mutationRate, mutationKernel, tmax, dt, dtSampling, initialisation, baseFolder = bFolder, fileAppend = "_run$(run)")
+        
+        idxTransient = Int(tTransient / dtSampling) + 1
+        isAbsorbed = isnan(last(xt))   # CHECK THIS, IT IS NOT CORRECT!
+        if isAbsorbed
+            idxAbsorbed = findfirst(isnan.(xt))
+            tAbsorbed = t[idxAbsorbed]
+            maxIdx = Int(round((tAbsorbed - tTransient) / dtSampling)) + 1
+            fastAbsorption = maxIdx < idxTransient
+        else
+            fastAbsorption = false
+            maxIdx = length(t) - 2
+        end
+        
+
+        if isAbsorbed != 1
+            
+            survivalProb[i,j] += 1
+            
+            v = (xt[3:end] .- xt[1:end-2]) ./ 2dt
+            if !fastAbsorption
+                vAvRun = mean(v[idxTransient:maxIdx])
+                vStdRun = std(v[idxTransient:maxIdx], mean = vAvRun)
+                NAvRun = mean(Nt[idxTransient:maxIdx])
+                NStdRun = std(Nt[idxTransient:maxIdx], mean = NAvRun)
+            else
+                vAvRun = xmax / t[idxAbsorbed]
+                vStdRun = std(v[1:idxAbsorbed], mean = vAvRun)
+                NAvRun = mean(Nt[1:idxAbsorbed])
+                NStdRun = std(Nt[1:idxAbsorbed], mean = NAvRun)
+            end
+            
+            vAverage[i,j] += vAvRun
+            NAverage[i,j] += NAvRun
+            NStd[i,j] += NStdRun
+        else
+            
+        end
+    end
+        
+    vAverage = vAverage ./ survivalProb
+    NAverage = NAverage ./ survivalProb
+    NStd = NStd ./ survivalProb
+    survivalProb = survivalProb ./ runs
+
+    return survivalProb, vAverage, vStd, NAverage, NStd
+end
+
+function plotPhaseDiagrams(R0Vect, rVect, survivalProb, vAverage, vStd, NAverage, NStd, mutationKernel; baseFolder = "")
+
+    dist = kernType(mutationKernel) * "$(std(mutationKernel))"
+    figDir = baseFolder * "figures/1D/" * dist 
+
+    pSP = heatmap(rVect, R0Vect, 1 .- survivalProb, c = cgrad(:roma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = "Extinction probability", titlefontszie = 20)
+
+    pV= heatmap(rVect, R0Vect, vAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\bar{v}$", titlefontszie = 20)
+
+    pN= heatmap(rVect, R0Vect, NAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\bar{N}$", rightmargin = 10Plots.pt, titlefontszie = 20)
+
+    pDeltaN= heatmap(rVect, R0Vect, NStd ./ NAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\Delta N / \bar{N}$", rightmargin = 10Plots.pt, titlefontszie = 20)
+
+    p = plot(pSP, pV, pDeltaN, pN, layout = (2,2), size = (1200, 800), legendfontsize=12, ylabelfontsize = 16, xlabelfontsize = 16, tickfontsize = 12, titlefontszie = 20, dpi = 1000, topmargin = 10Plots.pt, leftmargin = 10Plots.pt)
+    
+    display(p)
+    isdir(figDir) || mkpath(figDir)
+    savefig(p, joinpath(figDir, "fullPhaseDiagram.png"))
+    return p
+end
+
+# ====================================================================
+#                   Access data and plotting functions
+# ====================================================================
+
+
+function loadSimulationNxtData(R0, r, Nh, mu, mutationKernel, tmax, dt, dtSampling, initialisation; baseFolder = "", fileAppend = "")
+    
+    dist = kernType(mutationKernel) * "$(std(mutationKernel))"
+
+    dir = baseFolder * "simulations/1D/" * dist * "/dt$(dt)_dtSamp$(dtSampling)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_" * initialisation
+    isdir(dir) || error("The given parameter combination `$(dir)` has not been simulated yet (or the path to the directory is incorrect, check pwd)")
+
+    fileNxt = "Nxt" * fileAppend * ".csv"
+
+    t, xt, Nt = Vector.(eachcol(CSV.read(joinpath(dir, fileNxt), CSV.Tables.matrix)))
+    return t, xt, Nt
 end
 
 function plotSimulationSummary(nx, hx, xmax, r, R0; tTransient = 100, dtSampling = 1)
