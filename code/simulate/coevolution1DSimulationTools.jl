@@ -149,13 +149,24 @@ function getSteadyStateEstimate(R0, r, mutRate, mutKernel, Nh)
 
 
     # First calculation assuming linear fitness
-    v0 = D^(2/3)*s^(1/3)*(24log(Nh/1000*(D*s^2)^(1/3)))^(1/3)
+    v0 = D^(2/3)*s^(1/3)*(24max(log(Nh/100*(D*s^2)^(1/3)),0))^(1/3)
+    if v0 == 0
+        v0 = 2*sqrt(D*(R0-1))
+    end
     N0 = round(Nh * v0 * s)
     if N0 < 1000
         sigma = sqrt(v0 / s)
         return (N0, v0, sigma)
+    end
+    
     vNFunction = vN -> vNEquation(vN, Nh, s, D)
     (v0, N0) = nlsolve(vNFunction, [v0, N0]).zero
+    if v0 == 0
+        v0 = 2*sqrt(D*(R0-1))
+        N0 = round(Nh * v0 * s)
+        sigma = sqrt(v0 / s)
+        return (N0, v0, sigma)
+    end
 
     sigma = sqrt(v0 / s)
 
