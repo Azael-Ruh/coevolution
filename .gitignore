@@ -4,3 +4,5 @@
 *.csv
 *.jld2
 *.out
+*.err
+*.txt

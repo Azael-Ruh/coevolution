@@ -1,6 +1,35 @@
 #!/bin/bash
-#
-# r=(0 1 2 3 4 5 10 15 20 30 40 50 60 80 100)
-# R0=(1.05 1.1 1.2 1.3 1.4 1.5 1.8 2 2.4 2.8 3.5 4.2 5 6)
+#SBATCH -p C-Infinite
+#SBATCH --output=slurm.%A_%a.out
+#SBATCH --error=slurm.%A_%a.err
 
-srun julia ~/coevolution/scripts/1D/clusterTrials.jl 40 2 0.2 "Normal(0, 2)" 100000 500
+#SBATCH --array=0-9        # 10 jobs
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=2GB
+#SBATCH -t 0-2:00
+
+# ---- CONFIG ----
+RSIZE=15
+R0SIZE=14
+TOTAL_LINES=$(( RSIZE * R0SIZE ))
+NJOBS=10
+LINES_PER_JOB=$(( TOTAL_LINES / NJOBS))
+START=$(( SLURM_ARRAY_TASK_ID * LINES_PER_JOB ))
+END=$(( START + LINES_PER_JOB ))
+
+# ---- RUN THE ASSIGNED LINES ----
+i=0
+while IFS= read -r line; do
+    if (( i >= START && i < END )); then
+        # Extract parameters from line
+        read r R0 <<< "$line"
+
+        echo "Job $SLURM_ARRAY_TASK_ID running parameters: r=$r, R0=$R0"
+
+        # Run the simulation
+        julia ~/coevolution/scripts/1D/simulateWaveCluster.jl \
+              "$r" "$R0" 0.2 "Normal(0, 2)" 100000 500
+    fi
+    ((i++))
+done < /home/zayas-orihuela/coevolution/scripts/1D/params.txt

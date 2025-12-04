@@ -159,7 +159,7 @@ function getSteadyStateEstimate(R0, r, mutRate, mutKernel, Nh)
     if r > sigma 
         return (N0, v0, sigma)
     else
-        v0 = 2*sqrt(D*(R_0-1))
+        v0 = 2*sqrt(D*(R0-1))
         N0 = v0*Nh*s
         return (N0, v0, sigma)
     end
@@ -253,6 +253,7 @@ function simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tma
         end
     end 
 
+    println("Simulation end")
     return (nx, hx)
 end
 
@@ -267,7 +268,7 @@ function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, x
     xnxTable = Tables.table([x transpose(nx)], header = ["x"; ["t = $(tau)" for tau in t]])
     hxTable = Tables.table(transpose(hx), header = ["t = $(tau)" for tau in t])
 
-    dist = kernType(mutationKernel)
+    dist = kernType(mutationKernel) * "$(std(mutationKernel))"
 
     dir = baseFolder * "simulations/1D/" * dist * "/dt$(dt)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_" * initialisation
     isdir(dir) || mkpath(dir)
@@ -279,6 +280,8 @@ function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, x
     CSV.write(joinpath(dir, fileNxt), NxtTable)
     CSV.write(joinpath(dir, filexnx), xnxTable)
     CSV.write(joinpath(dir, filehx), hxTable)
+
+    println("Saved files in folder $dir")
 end
 
 function plotSimulationSummary(nx, hx, xmax, r, R0; tTransient = 100, dtSampling = 1)
