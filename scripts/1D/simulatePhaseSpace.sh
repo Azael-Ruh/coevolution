@@ -10,6 +10,7 @@
 #SBATCH -t 0-2:00
 
 # ---- CONFIG ----
+SECONDS=0
 RSIZE=15
 R0SIZE=14
 TOTAL_LINES=$(( RSIZE * R0SIZE ))
@@ -33,3 +34,5 @@ while IFS= read -r line; do
     fi
     ((i++))
 done < /home/zayas-orihuela/coevolution/scripts/1D/params.txt
+
+echo ${SECONDS}
