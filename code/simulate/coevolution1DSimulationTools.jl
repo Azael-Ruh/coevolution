@@ -74,7 +74,7 @@ function immuneDeaths(nh, totalDeaths)
     Array(sparsevec(supressIdx, ones(totalDeaths), length(nh)))
 end
 
-function initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh)
+function initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh; Nseed = 1)
     gaussianCond(x) = exp(-x^2/(2*sigma^2))/sqrt(2pi*sigma^2)
 
     virusIC = Vector{Int64}(undef, length(x))
@@ -94,6 +94,9 @@ function initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh)
     elseif distType == "steadyState"
         virusIC = round.(N0 .* gaussianCond.(x))
         immuneIC = round.(H0 .* (1 .+ erf.(.-x ./ sqrt(2*sigma^2))) ./ 2)
+    elseif distType == "seedNaiveBackground"
+        virusIC = round.(Nseed .* (x .== 0))
+        immuneIC = zero(virusIC)
     else
         virusIC = round.(N0 .* gaussianCond.(x))
         immuneIC = zero(virusIC)
