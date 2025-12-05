@@ -302,7 +302,7 @@ end
 #                   Data analysis tools
 # ====================================================================
 
-function producePhaseMatrixes(R0Vect, rVect, runs, Nh, mutationRate, mutationKernel, tmax, dt, dtSampling, initialisation; tTransient = 100, bFolder = "")
+function producePhaseMatrixes(R0Vect, rVect, nRuns, Nh, mutationRate, mutationKernel, tmax, dt, dtSampling, initialisation; tTransient = 100, bFolder = "")
 
     survivalProb = zeros((length(R0Vect), length(rVect)))
     vAverage = zeros((length(R0Vect), length(rVect)))
@@ -310,7 +310,7 @@ function producePhaseMatrixes(R0Vect, rVect, runs, Nh, mutationRate, mutationKer
     NAverage = zeros((length(R0Vect), length(rVect)))
     NStd = zeros((length(R0Vect), length(rVect)))
 
-    for i in eachindex(R0Vect), j in eachindex(rVect), run in runs
+    for i in eachindex(R0Vect), j in eachindex(rVect), run in 1:nRuns
         
         idxTransient = Int(tTransient / dt) + 1
         t, xt, Nt = loadSimulationNxtData(R0Vect[i], rVect[j], Nh, mutationRate, mutationKernel, tmax, dt, dtSampling, initialisation, baseFolder = bFolder, fileAppend = "_run$(run)")
@@ -328,7 +328,7 @@ function producePhaseMatrixes(R0Vect, rVect, runs, Nh, mutationRate, mutationKer
         end
         
 
-        if isAbsorbed != 1
+        if !isAbsorbed
             
             survivalProb[i,j] += 1
             
@@ -356,7 +356,7 @@ function producePhaseMatrixes(R0Vect, rVect, runs, Nh, mutationRate, mutationKer
     vAverage = vAverage ./ survivalProb
     NAverage = NAverage ./ survivalProb
     NStd = NStd ./ survivalProb
-    survivalProb = survivalProb ./ runs
+    survivalProb = survivalProb
 
     return survivalProb, vAverage, vStd, NAverage, NStd
 end
@@ -366,17 +366,16 @@ function plotPhaseDiagrams(R0Vect, rVect, survivalProb, vAverage, vStd, NAverage
     dist = kernType(mutationKernel) * "$(std(mutationKernel))"
     figDir = baseFolder * "figures/1D/" * dist 
 
-    pSP = heatmap(rVect, R0Vect, 1 .- survivalProb, c = cgrad(:roma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = "Extinction probability", titlefontszie = 20)
+    pSP = heatmap(rVect, R0Vect, 10 .- survivalProb, c = cgrad(:blues), xlabel = raw"$r$", ylabel = raw"$R_0$", title = "Extinction probability", titlefontszie = 20)
 
     pV= heatmap(rVect, R0Vect, vAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\bar{v}$", titlefontszie = 20)
 
-    pN= heatmap(rVect, R0Vect, NAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\bar{N}$", rightmargin = 10Plots.pt, titlefontszie = 20)
+    pN= heatmap(rVect, R0Vect, NAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\bar{N}$", rightmargin = 10Plots.pt, titlefontszie = 20, colorbar_scale = :log10)
 
     pDeltaN= heatmap(rVect, R0Vect, NStd ./ NAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\Delta N / \bar{N}$", rightmargin = 10Plots.pt, titlefontszie = 20)
 
     p = plot(pSP, pV, pDeltaN, pN, layout = (2,2), size = (1200, 800), legendfontsize=12, ylabelfontsize = 16, xlabelfontsize = 16, tickfontsize = 12, titlefontszie = 20, dpi = 1000, topmargin = 10Plots.pt, leftmargin = 10Plots.pt)
     
-    display(p)
     isdir(figDir) || mkpath(figDir)
     savefig(p, joinpath(figDir, "fullPhaseDiagram.png"))
     return p
@@ -398,6 +397,23 @@ function loadSimulationNxtData(R0, r, Nh, mu, mutationKernel, tmax, dt, dtSampli
 
     t, xt, Nt = Vector.(eachcol(CSV.read(joinpath(dir, fileNxt), CSV.Tables.matrix)))
     return t, xt, Nt
+end
+
+function loadSimulationDistributionData(R0, r, Nh, mu, mutationKernel, tmax, dt, dtSampling, initialisation; baseFolder = "", fileAppend = "")
+    dist = kernType(mutationKernel) * "$(std(mutationKernel))"
+
+    dir = baseFolder * "simulations/1D/" * dist * "/dt$(dt)_dtSamp$(dtSampling)_Nh$(Nh)_R0$(R0)_r$(r)_mu$(mutationRate)_tmax$(tmax)_" * initialisation
+    isdir(dir) || error("The given parameter combination `$(dir)` has not been simulated yet (or the path to the directory is incorrect, check pwd)")
+
+    filexnx = "xnx" * fileAppend * ".csv"
+    filehx = "hx" * fileAppend * ".csv"
+
+    xnx = CSV.read(joinpath(dir, filexnx), CSV.Tables.matrix)
+    x = xnx[:, 1]
+    nx = transpose(xnx[:, 2:end])
+    hx = transpose(CSV.read(joinpath(dir, filehx), CSV.Tables.matrix))
+
+    return nx, hx, x
 end
 
 function plotSimulationSummary(nx, hx, xmax, r, R0; tTransient = 100, dtSampling = 1)
@@ -460,7 +476,6 @@ function plotSimulationSummary(nx, hx, xmax, r, R0; tTransient = 100, dtSampling
     l = @layout [a{0.5h}
         [grid(2, 2)]]
     p = plot(p0, p1, p2, p3, p4, layout=l, size=(600, 600))
-    display(p)
 
     return p
 end
