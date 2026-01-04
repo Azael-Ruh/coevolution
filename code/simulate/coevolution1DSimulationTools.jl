@@ -518,8 +518,8 @@ function animateSimulation(nx, hx, x, Nh)
     (absorbedState, idxAbsorbed) = extinctionFlag(nx, x)
 
     animation = @animate for i in 1:(absorbedState > 0 ? min(idxAbsorbed + 100, size(nx)[1])  : size(nx)[1])
-        p = plot(x, nx[i, :], colour=:coral, ylims=[0, maximum(nx)], ylabel=raw"Viral density", xlabel=raw"$x$")
-        plot!(twinx(), x, hx[i, :] ./ Nh, colour = :steelblue, background_color_legend = :white, yaxis = raw"Immune memories", ylims = [0, 1])
+        p = plot(x, nx[i, :], colour=:coral, ylims=[0, maximum(nx)], ylabel=raw"Viral density", xlabel=raw"$x$", label = "")
+        plot!(twinx(), x, hx[i, :] ./ Nh, colour = :steelblue, background_color_legend = :white, yaxis = raw"Immune memories", ylims = [0, 1], label = "")
         plot!([], [], color = :coral, label = raw"$n(x,t)$")
         plot!([], [], color = :steelblue, label = raw"$h(x,t)/N_h$", legend_pos = :topright)
     end
