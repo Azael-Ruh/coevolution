@@ -274,6 +274,81 @@ function simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tma
     return (nx, hx)
 end
 
+function simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
+
+    # Cross-reactivity Kernel definition
+    H(x) = exp.(-abs.(x)/r)
+    if r == 0
+        Hkernel = [1]
+    else
+        Hkernel = H(-5*ceil(r):5*ceil(r))
+    end
+    HkernelHalfLength::Int = floor(length(Hkernel)/2)
+
+    # Variable initialisation
+    maxtIdx = Int(round(tmax/dtSampling+1))
+    Nt = Vector{Int64}(undef, maxtIdx)
+    xt = Vector{Float64}(undef, maxtIdx)
+    sigmat = Vector{Float64}(undef, maxtIdx)
+    uTt = x[1] .* zeros(maxtIdx)
+    Nt[1] = sum(nx0)
+    xt[1] = sum(x .* nx0) ./ Nt[1]
+    sigmat[1] = sqrt(sum(x .^2 .* nx0) / Nt[1] - xt[1]^2)
+    uTt[1] = x[findlast(nx0 .> 0)] - xt[1] 
+    
+    maxIdx = length(x)
+    absorbedState::Int = 0
+
+    println("=============START OF THE SIMULATION==============")
+    t = 0:dt:tmax
+    idxSampling::Int = round(dtSampling/dt)
+
+    # Instantaneous fields
+    hxLoc = hx0
+    nxLoc = nx0
+
+    for i in 2:length(t)
+
+        # Virus growth
+        c = conv(hxLoc, Hkernel)[HkernelHalfLength + 1: end - HkernelHalfLength]
+        R = R0 .* exp.(-c ./ Nh)
+        nxGrowth = rand.(Poisson.(R .* nxLoc .* dt))
+        nxDeath = rand.(Poisson.(nxLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
+        nxLoc .= max.(nxLoc .+ nxGrowth .- nxDeath, 0)
+
+        # Mutations
+        nxMutated = sparsevec(rand.(Binomial.(nxLoc, 1 - exp(-mutationRate*dt)))) # 96.2 μs
+        mutationDisplacements = getDisplacement.(iszero(nxMutated) ? [(0, 0)] : tuple.(nxMutated.nzind, nxMutated.nzval), mutationKernel) # 267.5 μs (~10 mut per x), 511.135 μs (~100 mut per x), 32.847 ms (~ 1000 mut per x)
+        nxJump = displacementToJump.(mutationDisplacements, maxIdx) # 4.643 ms
+        nxLoc = nxLoc - Array(nxMutated) + Array(sum(nxJump)) # Move mutated viruses
+        
+        # Immune evolution
+        hxLoc += nxDeath # Whenever someone recovers it means it has developped immunity
+
+        # Absorbtion index
+        if iszero(nxLoc) 
+            if uTt[findlast(uTt .> 0)] < sigmat[findlast(uTt .> 0)]
+                absorbedState = 2
+                println("WARNING: virus escaped")
+            else
+                absorbedState = 1
+                println("WARNING: virus absorbed")
+            end
+        end
+
+        # Sampling
+        if i % idxSampling == 1
+            Nt[Int((i - 1) / idxSampling + 1)] = sum(nxLoc)
+            xt[Int((i - 1) / idxSampling + 1)] = sum(x .* nxLoc) ./ Nt[Int((i - 1) / idxSampling + 1)]
+            sigmat[Int((i - 1) / idxSampling + 1)] = sqrt(sum(x .^2 .* nxLoc) / Nt[Int((i - 1) / idxSampling + 1)] - xt[Int((i - 1) / idxSampling + 1)]^2)
+            uTt[Int((i - 1) / idxSampling + 1)] = x[findlast(nxLoc .> 0)] - xt[Int((i - 1) / idxSampling + 1)]
+        end
+    end 
+
+    println("Simulation end")
+    return Nt, xt, sigmat, uTt, absorbedState, nxLoc, hxLoc
+end
+
 function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax, initialisation::String; baseFolder = "", fileAppend = "")
     
     x = xmax-size(nx)[2]+1:xmax
