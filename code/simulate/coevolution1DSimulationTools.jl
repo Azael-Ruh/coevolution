@@ -252,7 +252,7 @@ function simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tma
         R = R0 .* exp.(-c ./ Nh)
         nxGrowth = rand.(Poisson.(R .* nxLoc .* dt))
         nxDeath = rand.(Poisson.(nxLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
-        nxLoc .= max.(nxLoc .+ nxGrowth .- nxDeath, 0)
+        nxLoc = max.(nxLoc .+ nxGrowth .- nxDeath, 0)
 
         # Mutations
         nxMutated = sparsevec(rand.(Binomial.(nxLoc, 1 - exp(-mutationRate*dt)))) # 96.2 μs
@@ -314,7 +314,7 @@ function simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt
         R = R0 .* exp.(-c ./ Nh)
         nxGrowth = rand.(Poisson.(R .* nxLoc .* dt))
         nxDeath = rand.(Poisson.(nxLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
-        nxLoc .= max.(nxLoc .+ nxGrowth .- nxDeath, 0)
+        nxLoc = max.(nxLoc .+ nxGrowth .- nxDeath, 0)
 
         # Mutations
         nxMutated = sparsevec(rand.(Binomial.(nxLoc, 1 - exp(-mutationRate*dt)))) # 96.2 μs

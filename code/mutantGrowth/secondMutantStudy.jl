@@ -15,7 +15,7 @@ function simulateMutantGrowthFull(nxBackground0, hxBackground0, dxMutant, r, R0,
     nxBackground = Array{Int64, 2}(undef, Int(round(tmax/dtSampling+1)), maxIdx)
     hx = Array{Int64, 2}(undef, Int(round(tmax/dtSampling+1)), maxIdx)
     nxBackground[1, :] = nxBackground0
-    hx[1, :] = hx0
+    hx[1, :] = hxBackground0
 
 
     # Mutant initialisation
@@ -39,11 +39,11 @@ function simulateMutantGrowthFull(nxBackground0, hxBackground0, dxMutant, r, R0,
         
         nxBackgroundGrowth = rand.(Poisson.(R .* nxBackgroundLoc .* dt))
         nxBackgroundDeath = rand.(Poisson.(nxBackgroundLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
-        nxBackgroundLoc .= max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
+        nxBackgroundLoc = max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
         
         nxMutantGrowth = rand.(Poisson.(R .* nxMutantLoc .* dt))
         nxMutantDeath = rand.(Poisson.(nxMutantLoc .* dt))
-        nxMutantLoc .= max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
+        nxMutantLoc = max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
 
         nxDeath = nxMutantDeath + nxBackgroundDeath
 
@@ -88,7 +88,7 @@ function simulateMutantTillFixation(nxBackground0, hxBackground0, dxMutant, r, R
     nxBackground = Array{Int64, 2}(undef, Int(round(tmax/dtSampling+1)), maxIdx)
     hx = Array{Int64, 2}(undef, Int(round(tmax/dtSampling+1)), maxIdx)
     nxBackground[1, :] = nxBackground0
-    hx[1, :] = hx0
+    hx[1, :] = hxBackground0
 
 
     # Mutant initialisation
@@ -102,6 +102,7 @@ function simulateMutantTillFixation(nxBackground0, hxBackground0, dxMutant, r, R
     # Iterations till fixation
     itrTillFixation = 1
     mutantExtinct = false
+    backgroundExtinct = false
 
     for itr in 1:maxItr
 
@@ -120,11 +121,11 @@ function simulateMutantTillFixation(nxBackground0, hxBackground0, dxMutant, r, R
             
             nxBackgroundGrowth = rand.(Poisson.(R .* nxBackgroundLoc .* dt))
             nxBackgroundDeath = rand.(Poisson.(nxBackgroundLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
-            nxBackgroundLoc .= max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
+            nxBackgroundLoc = max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
             
             nxMutantGrowth = rand.(Poisson.(R .* nxMutantLoc .* dt))
             nxMutantDeath = rand.(Poisson.(nxMutantLoc .* dt))
-            nxMutantLoc .= max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
+            nxMutantLoc = max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
 
             nxDeath = nxMutantDeath + nxBackgroundDeath
 
@@ -141,6 +142,7 @@ function simulateMutantTillFixation(nxBackground0, hxBackground0, dxMutant, r, R
 
             # Check for mutant extinction
             mutantExtinct = iszero(nxMutantLoc)
+            backgroundExtinct = iszero(nxBackgroundLoc)
             if mutantExtinct
                 break
             end
@@ -156,7 +158,7 @@ function simulateMutantTillFixation(nxBackground0, hxBackground0, dxMutant, r, R
             end
         end 
 
-        if !mutantExtinct
+        if !mutantExtinct && backgroundExtinct
             itrTillFixation = itr
             println("Mutant fixated at itr $itr")
             break
@@ -170,7 +172,7 @@ function simulateMutantTillFixation(nxBackground0, hxBackground0, dxMutant, r, R
     return (nxBackground, nxMutant, hx, mutantExtinct)
 end
 
-function simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x; maxItr = 100, Nestablishment = 100)
+function simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x; maxItr = 100, xEstablishment = 0.1)
     # Cross-reactivity Kernel definition
     H(x) = exp.(-abs.(x)/r)
     if r == 0
@@ -185,7 +187,7 @@ function simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant,
     nxBackground = Array{Int64, 2}(undef, Int(round(tmax/dtSampling+1)), maxIdx)
     hx = Array{Int64, 2}(undef, Int(round(tmax/dtSampling+1)), maxIdx)
     nxBackground[1, :] = nxBackground0
-    hx[1, :] = hx0
+    hx[1, :] = hxBackground0
 
 
     # Mutant initialisation
@@ -197,8 +199,9 @@ function simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant,
     idxSampling::Int = round(dtSampling/dt)
 
     # Iterations till fixation
-    itrTillFixation = 1
+    itrTillEstablishment = 0
     mutantExtinct = false
+    backgroundExtinct = false
     mutantEstablished = false
 
     for itr in 1:maxItr
@@ -218,11 +221,11 @@ function simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant,
             
             nxBackgroundGrowth = rand.(Poisson.(R .* nxBackgroundLoc .* dt))
             nxBackgroundDeath = rand.(Poisson.(nxBackgroundLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
-            nxBackgroundLoc .= max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
+            nxBackgroundLoc = max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
             
             nxMutantGrowth = rand.(Poisson.(R .* nxMutantLoc .* dt))
             nxMutantDeath = rand.(Poisson.(nxMutantLoc .* dt))
-            nxMutantLoc .= max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
+            nxMutantLoc = max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
 
             nxDeath = nxMutantDeath + nxBackgroundDeath
 
@@ -239,10 +242,11 @@ function simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant,
 
             # Check for mutant extinction or establishment
             mutantExtinct = iszero(nxMutantLoc)
+            backgroundExtinct = iszero(nxBackgroundLoc)
             if mutantExtinct && !mutantEstablished
                 break
             end
-            if !mutantEstablished && sum(nxMutantLoc) >= Nestablishment
+            if !mutantEstablished && sum(nxMutantLoc) / sum(nxBackgroundLoc .+ nxMutantLoc) >= xEstablishment
                 mutantEstablished = true
             end
 
@@ -258,12 +262,17 @@ function simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant,
             end
         end 
 
-        if !mutantExtinct
-            itrTillFixation = itr
+        if !mutantExtinct && backgroundExtinct
+            itrTillEstablishment = itr
             println("Mutant fixated at itr $itr")
             break
-        elseif mutantEstablished
+        elseif mutantEstablished && mutantExtinct
+            itrTillEstablishment = itr
             println("Mutant established and then extinct")
+            break
+        elseif mutantEstablished
+            itrTillEstablishment = itr
+            println("Mutant established")
             break
         else
             println("Mutant extinct")
@@ -272,7 +281,22 @@ function simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant,
     end
 
     println("Simulation end")
-    return (nxBackground, nxMutant, hx, mutantExtinct, mutantEstablished)
+    return (nxBackground, nxMutant, hx, mutantExtinct, mutantEstablished, itrTillEstablishment)
+end
+
+function countMutantTillNEst(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x, Nfix; maxSearches = 100, maxItrFixation = 100, xEstab = 0.1)
+    totalSimulationNumber = 0
+    totalEstablishedMutants = 0
+    searches = 0
+    while (totalEstablishedMutants < Nfix) && (searches < maxSearches)
+        println("Dx = $(dxMutant) Search for stablishment #$(searches + 1), found until now $(totalEstablishedMutants) establishment events")
+        _ , _ , _ , _, mutantEstablished, simsTillFixation = simulateMutantTillEstablishment(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x, maxItr = maxItrFixation, xEstablishment = xEstab)
+        searches += 1
+        (simsTillFixation == 0) && (simsTillFixation = maxItrFixation)
+        totalSimulationNumber += simsTillFixation
+        totalEstablishedMutants += mutantEstablished
+    end
+    return totalSimulationNumber, totalEstablishedMutants, searches
 end
 
 function simulateMutantGrowth(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x)
@@ -302,11 +326,11 @@ function simulateMutantGrowth(nxBackground0, hxBackground0, dxMutant, r, R0, mut
         
         nxBackgroundGrowth = rand.(Poisson.(R .* nxBackgroundLoc .* dt))
         nxBackgroundDeath = rand.(Poisson.(nxBackgroundLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
-        nxBackgroundLoc .= max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
+        nxBackgroundLoc = max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
         
         nxMutantGrowth = rand.(Poisson.(R .* nxMutantLoc .* dt))
         nxMutantDeath = rand.(Poisson.(nxMutantLoc .* dt))
-        nxMutantLoc .= max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
+        nxMutantLoc = max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
 
         nxDeath = nxMutantDeath + nxBackgroundDeath
 
@@ -328,6 +352,10 @@ function simulateMutantGrowth(nxBackground0, hxBackground0, dxMutant, r, R0, mut
     println("Simulation end")
     return (nxBackgroundLoc, nxMutantLoc, hxLoc)
 end
+
+# =====================================================
+#                           Plotting tools
+# =====================================================
 
 function animateSimulationMutant(nxBackground, nxMutant, hx, x, Nh)
     

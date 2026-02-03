@@ -30,12 +30,12 @@ if absorbedState == 0
 end
 uTAv = mean(uTt[tTransient:end])
 
-deltaRMutant =  1.1
+deltaRMutant =  1.5
 duMutant = deltaRMutant * uTAv
 
-(nxBackground, nxMutant, hx, extinctionState, estalishmentState) = simulateMutantTillEstablishment(nxBack0, hxBack0, duMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x, maxItr = 4000)
+(nxBackground, nxMutant, hx, extinctionState, establishmentState) = simulateMutantTillEstablishment(nxBack0, hxBack0, duMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x, maxItr = 4000)
 
-if !extinctionState || estalishmentState
+if !extinctionState || establishmentState
     g = animateSimulationMutant(nxBackground, nxMutant, hx, x, Nh)
     NtBackground = dropdims(sum(nxBackground, dims = 2), dims = 2)
     NtMutant = dropdims(sum(nxMutant, dims = 2), dims = 2)
