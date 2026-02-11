@@ -298,6 +298,7 @@ function simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt
     
     maxIdx = length(x)
     absorbedState::Int = 0
+    idxAbsorbed::Int = 0
 
     println("=============START OF THE SIMULATION==============")
     t = 0:dt:tmax
@@ -308,7 +309,6 @@ function simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt
     nxLoc = nx0
 
     for i in 2:length(t)
-
         # Virus growth
         c = conv(hxLoc, Hkernel)[HkernelHalfLength + 1: end - HkernelHalfLength]
         R = R0 .* exp.(-c ./ Nh)
@@ -326,7 +326,8 @@ function simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt
         hxLoc += nxDeath # Whenever someone recovers it means it has developped immunity
 
         # Absorbtion index
-        if iszero(nxLoc) 
+        if iszero(nxLoc)
+            idxAbsorbed > 0 || (idxAbsorbed = i)
             if uTt[findlast(uTt .> 0)] < sigmat[findlast(uTt .> 0)]
                 absorbedState = 2
                 println("WARNING: virus escaped")
@@ -346,7 +347,38 @@ function simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt
     end 
 
     println("Simulation end")
-    return Nt, xt, sigmat, uTt, absorbedState, nxLoc, hxLoc
+    return Nt, xt, sigmat, uTt, absorbedState, idxAbsorbed, nxLoc, hxLoc
+end
+
+function simulateWaveStatisticsFull(R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, tTransient; xmax = 0, s = 0, D = 0, initialCond = "steadyState")
+    
+    s > 0 || (s = log(R0)/r)
+    D > 0 || (D = mutationRate*std(mutationKernel)^2/2)
+
+    if xmax == 0
+        vFKPP = 2 * sqrt((R0 - 1) * D)
+        xmax = 2*max(500, round(Int, vFKPP*tmax + vFKPP^2/(D*s)))
+    end
+
+    t = 0:dtSampling:tmax
+    (nx0, hx0, x) = getInitialCondition(initialCond, R0, r, mutationRate, mutationKernel, Nh, xmax)
+    (Nt, xt, sigmat, uTt, absorbedState, idxAbsorbed, nxBack0, hxBack0) = simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
+
+    idxTransient = findfirst(t .>= tTransient)
+    if absorbedState == 0
+        idxEnd = length(t)
+    elseif idxAbsorbed > 2*idxTransient
+        idxEnd = length(t) - idxTransient
+    else
+        print("WARNING: fast absorption")
+        idxEnd = idxTransient
+    end
+    uTAv = mean(uTt[idxTransient:idxEnd])
+    NAv = mean(Nt[idxTransient:idxEnd])
+    sigmaAv = mean(sigmat[idxTransient:idxEnd])
+    vAv = (xt[idxEnd] - xt[idxTransient]) / (t[idxEnd] - t[idxTransient])
+
+    return (NAv, vAv, sigmaAv, uTAv)
 end
 
 function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax, initialisation::String; baseFolder = "", fileAppend = "")

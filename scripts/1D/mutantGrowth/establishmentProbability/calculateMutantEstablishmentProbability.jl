@@ -1,4 +1,4 @@
-include("../../../code/mutantGrowth/secondMutantStudy.jl")
+include("../../../../code/mutantGrowth/secondMutantStudy.jl")
 
 r = 40
 R0 = 1.3
@@ -12,7 +12,7 @@ D = mutationRate*mutationScale^2/2
 tmax = 500
 
 vFKPP = 2 * sqrt((R0 - 1) * D)
-xmax = 2*max(500, round(Int, vFKPP*tmax + vFKPP^2/D))
+xmax = 2*max(500, round(Int, vFKPP*tmax + vFKPP^2/(D*s)))
 
 Nh = 10000000
 (nx0, hx0, x) = getInitialCondition("steadyState", R0, r, mutationRate, mutationKernel, Nh, xmax)
@@ -26,9 +26,9 @@ t = 0:dtSampling:tmax
 tTransient = 50
 idxTransient = findfirst(t .== tTransient)
 if absorbedState == 0
-    vAv = (xt[end] - xt[tTransient]) / (t[end] - t[tTransient])
+    vAv = (xt[end] - xt[idxTransient]) / (t[end] - t[idxTransient])
 end
-uTAv = mean(uTt[tTransient:end])
+uTAv = mean(uTt[idxTransient:end])
 
 establishmentEvents = 20
 deltaRGrid = 0:0.05:2

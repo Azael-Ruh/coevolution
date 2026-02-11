@@ -1,4 +1,5 @@
 include("../../code/simulate/coevolution1DSimulationTools.jl")
+using SpecialFunctions, LsqFit, LinearAlgebra, NLsolve
 
 function simulateMutantGrowthFull(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x)
     # Cross-reactivity Kernel definition
@@ -385,4 +386,74 @@ function plotMutantSweep(NtBackground, NtMutant, t)
     p = plot(tRange, xMutant, colour = :coral, lw = 1.5, ylims = (0,1), fillrange = zero(length(xMutant)), fillalpha = 0.35, yaxis = raw"Mutant fraction" , xaxis = raw"$t$" , label = "")
 
     return p
+end
+
+
+# =====================================================
+#                 Fixation Probability
+# =====================================================
+
+function discretisedODE!(f, r, w, dr, vs, Ds)
+    f[1] = w[1]
+    f[end] = w[end] - r[end]/(1 + r[end])
+    f[2:end-1] .= vs/2dr .* (w[3:end] - w[1:end-2]) .- r[2:end-1] .* w[2:end-1] .+ (1 .+ r[2:end-1]) .* w[2:end-1].^2 .- Ds/dr^2 .* (w[3:end] .- 2 .* w[2:end-1] .+ w[1:end-2])
+end
+
+alphac(rc, vs, Ds) = vs^2/2Ds - vs/Ds^(1/3)*airyaiprime((vs^2/4Ds - rc)/Ds^(1/3))/airyai((vs^2/4Ds - rc)/Ds^(1/3))
+wc(rc, vs, Ds) = (rc-alphac(rc, vs, Ds))/(1+rc)
+Ac(rc, vs, Ds) = wc(rc, vs, Ds)/(exp(vs*rc/(2Ds))*airyai((vs^2/4Ds - rc)/Ds^(1/3)))
+Cc(rc, vs, Ds) = vs * exp(rc^2/2vs)/wc(rc, vs, Ds) - (vs * exp(rc^2/2vs) + sqrt(pi * vs / 2) * erfi(rc / sqrt(2vs)))
+wHighAsymptotic(r, rc, vs, Ds) = vs * exp(r^2 / 2vs) / (vs * exp(r^2 /2vs) + Cc(rc, vs, Ds) + sqrt(pi * vs / 2) * erfi(r / sqrt(2vs)))
+wLowAsymptotic(r, rc, vs, Ds) = Ac(rc, vs, Ds) * airyai((vs^2/4Ds-r)/Ds^(1/3)) * exp(vs*r/2Ds)
+wAsymptotic(r, rc, vs, Ds) = wHighAsymptotic.(r, rc, vs, Ds) .* (r .> rc) .+ wLowAsymptotic.(r, rc, vs, Ds) .* (r .< rc)
+
+function getFixedPoint(vs, Ds, zeta, d)
+    rc0 = zeta + 1.6d
+    funToZero(r) = alphac.(r, vs, Ds) .- r
+    sol = nlsolve(funToZero, [rc0])
+    return (sol.zero[1], (sol.zero[1] - zeta) / d)
+end
+
+function getLowFitnessMaximum(vs, Ds, zeta, d)
+    rc0 = zeta + 1.6d
+    funToZero(r) = alphac.(r, vs, Ds)
+    sol = nlsolve(funToZero, [rc0])
+    return (sol.zero[1], (sol.zero[1] - zeta) / d)
+end
+
+function getMatchingLimits(vs, Ds)
+    zeta = vs^2/4Ds
+    d = Ds^(1/3)
+
+    (rFixed, xiFixed) =  getFixedPoint(vs, Ds, zeta, d)
+    (rM, xiM) = getLowFitnessMaximum(vs, Ds, zeta, d)
+
+    return (rFixed, xiFixed, rM, xiM)
+end
+
+function getNumericalFixationProbability(rVect, dr, vs, Ds, rc0)    
+    zeta = vs^2/4Ds
+    d = Ds^(1/3)
+
+    w0 = wAsymptotic(rVect, rc0, vs, Ds)
+    w0[w0 .< 0] = 0
+    w0[isnan.(w0)] = rVect./(1 .+ rVect)[isnan.(w0)]
+    w0[1] = 0
+
+    discretisedODEToSolve! = (f,w) -> discretisedODE!(f, rVect, w, dr, vs, Ds)
+    sol = nlsolve(discretisedODEToSolve!, w0)
+    return sol.zero
+end
+
+function getBestMatchingPoint(wNumeric, vs, Ds, rVect, rc0)
+
+    zeta = vs^2/4Ds
+    d = Ds^(1/3)
+
+    fittingFunc(r, p) = wAsymptotic(r, p[1], vs, Ds)
+    fit = curve_fit(fittingFunc, rVect, wNumeric, [rc0])
+    rcFit = fit.param[1]
+    xiFit = (rcFit - zeta)/d
+    
+    return (rcFit, xiFit)
 end
