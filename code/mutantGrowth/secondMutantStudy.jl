@@ -436,8 +436,8 @@ function getNumericalFixationProbability(rVect, dr, vs, Ds, rc0)
     d = Ds^(1/3)
 
     w0 = wAsymptotic(rVect, rc0, vs, Ds)
-    w0[w0 .< 0] = 0
-    w0[isnan.(w0)] = rVect./(1 .+ rVect)[isnan.(w0)]
+    w0[w0 .< 0] .= 0
+    w0[isnan.(w0)] = (rVect./(1 .+ rVect))[isnan.(w0)]
     w0[1] = 0
 
     discretisedODEToSolve! = (f,w) -> discretisedODE!(f, rVect, w, dr, vs, Ds)

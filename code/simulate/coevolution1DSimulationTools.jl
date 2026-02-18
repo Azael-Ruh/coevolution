@@ -14,6 +14,7 @@
 # ===================================================
 using Distributions, Plots, StatsBase, Interpolations, Tables, CSV, SparseArrays, DSP, SpecialFunctions, NLsolve
 import StatsBase: std, params
+import Base: broadcastable
 
 # ====================================================================
 #                   New types
@@ -26,6 +27,29 @@ struct picewiseKernel
     localKernel::Distribution{Univariate, Continuous}
 end
 
+function broadcastable(mutKern::picewiseKernel)
+    return Ref(mutKern)
+end
+
+# function length(kern::picewiseKernel)
+#     return 1
+# end
+
+# function iterate(kern::picewiseKernel)
+#     return (picewiseKernel, nothing)
+# end
+
+# function iterate(kern::picewiseKernel, n::Nothing)
+#     return n
+# end
+
+function params(mutKernel::picewiseKernel)
+    (mutKernel.nonLocalMutProb, mutKernel.nonLocalJump, params(mutKernel.localKernel))
+end
+
+function std(mutKernel::picewiseKernel)
+    return std(mutKernel.localKernel)*(1-mutKernel.nonLocalMutProb)
+end
 # ====================================================================
 #                   Useful functions
 # ====================================================================
@@ -45,6 +69,10 @@ end
 
 function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::Distribution{Univariate, Continuous}, longJumpProb, longJumpLength, localKernel)
     getDisplacement(nMutated, mutKernel)
+end
+
+function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::picewiseKernel)
+    getDisplacement(nMutated, kernType(mutKernel), mutKernel.nonLocalMutProb, mutKernel.nonLocalJump, mutKernel.localKernel)
 end
 
 # Special distributions
@@ -74,7 +102,7 @@ function immuneDeaths(nh, totalDeaths)
     Array(sparsevec(supressIdx, ones(totalDeaths), length(nh)))
 end
 
-function initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh; Nseed = 1)
+function initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh, D; Nseed = 1)
     gaussianCond(x) = exp(-x^2/(2*sigma^2))/sqrt(2pi*sigma^2)
 
     virusIC = Vector{Int64}(undef, length(x))
@@ -131,9 +159,10 @@ function extinctionFlag(nx, x)
 end
 
 function getInitialCondition(distType::String, R0, r, mutationRate, mutationKernel, Nh, xmax)
+    D = mutationRate .* std(mutationKernel)^2/2
     (N0, v, sigma) = getSteadyStateEstimate(R0, r, mutationRate, mutationKernel, Nh)
     x = -Int(max(round(5*r), round(5*sigma))):xmax
-    (nx0, hx0) =  initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh)
+    (nx0, hx0) =  initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh, D)
     return (nx0, hx0, x)
 end
 
@@ -183,10 +212,6 @@ function getSteadyStateEstimate(R0, r, mutRate, mutKernel, Nh)
 
 end
 
-function params(mutKernel::picewiseKernel)
-    (mutKernel.nonLocalMutProb, mutKernel.nonLocalJump, params(mutKernel.localKernel))
-end
-
 function kernType(mutKernel::Distribution{Univariate, Continuous})
     kernelType = string(typeof(mutKernel))
     return kernelType[1: findfirst('{', kernelType) - 1]
@@ -202,10 +227,6 @@ end
 
 function getDist(mutKernel::picewiseKernel)
     return kernType(mutKernel) * mutKernel.nonLocalJump * "prob" * mutKernel.nonLocalMutProb * "/" * getDist(mutKernel.localKernel)
-end
-
-function std(mutKernel::picewiseKernel)
-    return std(mutKernel.localKernel)
 end
 
 function plotConfig()
@@ -375,10 +396,11 @@ function simulateWaveStatisticsFull(R0, r, Nh, mutationRate, mutationKernel, dt,
     end
     uTAv = mean(uTt[idxTransient:idxEnd])
     NAv = mean(Nt[idxTransient:idxEnd])
+    Nstd = std(Nt[idxTransient:idxEnd])
     sigmaAv = mean(sigmat[idxTransient:idxEnd])
     vAv = (xt[idxEnd] - xt[idxTransient]) / (t[idxEnd] - t[idxTransient])
 
-    return (NAv, vAv, sigmaAv, uTAv)
+    return (NAv, Nstd, vAv, sigmaAv, uTAv)
 end
 
 function saveSimulation(nx, hx, r, R0, mutationRate, mutationKernel, tmax, dt, xmax, initialisation::String; baseFolder = "", fileAppend = "")
