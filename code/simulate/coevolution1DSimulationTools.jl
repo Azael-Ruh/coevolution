@@ -488,7 +488,7 @@ function producePhaseMatrixes(R0Vect, rVect, nRuns, Nh, mutationRate, mutationKe
     vAverage = vAverage ./ survivalProb
     NAverage = NAverage ./ survivalProb
     NStd = NStd ./ survivalProb
-    survivalProb = survivalProb
+    survivalProb = survivalProb./10
 
     return survivalProb, vAverage, vStd, NAverage, NStd
 end
@@ -498,7 +498,7 @@ function plotPhaseDiagrams(R0Vect, rVect, survivalProb, vAverage, vStd, NAverage
     dist = kernType(mutationKernel) * "$(std(mutationKernel))"
     figDir = baseFolder * "figures/1D/" * dist 
 
-    pSP = heatmap(rVect, R0Vect, 10 .- survivalProb, c = cgrad(:blues), xlabel = raw"$r$", ylabel = raw"$R_0$", title = "Extinction probability", titlefontszie = 20)
+    pSP = heatmap(rVect, R0Vect, 1 .- survivalProb, c = cgrad(:blues, rev=true), xlabel = raw"$r$", ylabel = raw"$R_0$", title = "Extinction probability", titlefontszie = 20)
 
     pV= heatmap(rVect, R0Vect, vAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\bar{v}$", titlefontszie = 20)
 

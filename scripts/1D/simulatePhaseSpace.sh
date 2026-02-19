@@ -30,7 +30,7 @@ while IFS= read -r line; do
 
         # Run the simulation
         julia ~/coevolution/scripts/1D/simulateWaveRunsCluster.jl \
-              "$r" "$R0" 0.2 "Normal(0, 2)" 100000 1000 10
+              "$r" "$R0" 0.2 "Normal(0, 2)" 1000000 1000 10 #Before Nh = 100000
     fi
     ((i++))
 done < /home/zayas-orihuela/coevolution/scripts/1D/params.txt
