@@ -498,7 +498,7 @@ function plotPhaseDiagrams(R0Vect, rVect, survivalProb, vAverage, vStd, NAverage
     dist = kernType(mutationKernel) * "$(std(mutationKernel))"
     figDir = baseFolder * "figures/1D/" * dist 
 
-    pSP = heatmap(rVect, R0Vect, 1 .- survivalProb, c = cgrad(:blues, rev=true), xlabel = raw"$r$", ylabel = raw"$R_0$", title = "Extinction probability", titlefontszie = 20)
+    pSP = heatmap(rVect, R0Vect, 1 .- survivalProb, c = cgrad([cgrad(:blues,3)[3], cgrad(:blues,3)[2], cgrad(:blues,3)[1], :white]), xlabel = raw"$r$", ylabel = raw"$R_0$", title = "Extinction probability", titlefontszie = 20)
 
     pV= heatmap(rVect, R0Vect, vAverage, c = cgrad(:magma), xlabel = raw"$r$", ylabel = raw"$R_0$", title = raw"$\bar{v}$", titlefontszie = 20)
 
