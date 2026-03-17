@@ -60,6 +60,11 @@ function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::Distribution{
     (nMutated[1], Distributions.rand!(mutKernel, zeros(nMutated[2])))
 end
 
+function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::Distribution{Univariate, Discrete})
+    nMutated[1] == 0 && return (0,[0])
+    (nMutated[1], Distributions.rand!(mutKernel, zeros(nMutated[2])))
+end
+
 # Exponential case
 function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::Exponential{Float64})
     nMutated[1] == 0 && return (0,[0])
@@ -91,8 +96,8 @@ function getDisplacementPiecewise(nMutated::Tuple{Int64, Int64}, longJumpProb::F
     return (nMutated[1], [Distributions.rand!(localKernel, zeros(nMutated[2] - nNonLocal)); longJumpLength .* ones(nNonLocal)])
 end
 
-function displacementToJump(mutDisplacement, maxIdx)
-    jumpToIdx::Vector{Int64} = round.(mutDisplacement[2] .+ mutDisplacement[1])
+function displacementToJump(mutDisplacement, maxIdx; dx = 1)
+    jumpToIdx::Vector{Int64} = round.(mutDisplacement[2]./dx .+ mutDisplacement[1])
     sparsevec([min(max(jump, 1), maxIdx) for jump in jumpToIdx], [jump > 1 && jump < maxIdx ? 1 : 0 for jump in jumpToIdx], maxIdx)
 end
 
