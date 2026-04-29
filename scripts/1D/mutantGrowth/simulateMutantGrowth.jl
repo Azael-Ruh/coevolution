@@ -1,7 +1,7 @@
 include("../../../code/mutantGrowth/secondMutantStudy.jl")
 
-r = 40
-R0 = 1.3
+r = 60
+R0 = 2
 s = log(R0)/r
 
 mutationRate = 0.5
@@ -21,7 +21,7 @@ dt = 0.1
 dtSampling = 1
 t = 0:dtSampling:tmax
 
-(Nt, xt, sigmat, uTt, absorbedState, nxBack0, hxBack0) = simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
+(Nt, xt, sigmat, uTt, absorbedState, idxAbsorbed, nxBack0, hxBack0) = simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
 
 tTransient = 50
 idxTransient = findfirst(t .== tTransient)
@@ -30,11 +30,12 @@ if absorbedState == 0
 end
 uTAv = mean(uTt[tTransient:end])
 
-deltaRMutant =  1.5
+deltaRMutant =  1.1
 duMutant = deltaRMutant * uTAv
 
 (nxBackground, nxMutant, hx, extinctionState, establishmentState) = simulateMutantTillEstablishment(nxBack0, hxBack0, duMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x, maxItr = 4000)
 
+plotConfig()
 if !extinctionState || establishmentState
     g = animateSimulationMutant(nxBackground, nxMutant, hx, x, Nh)
     NtBackground = dropdims(sum(nxBackground, dims = 2), dims = 2)

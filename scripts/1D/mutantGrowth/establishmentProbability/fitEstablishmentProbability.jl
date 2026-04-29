@@ -7,7 +7,7 @@ r = 40
 R0 = 1.3
 s = log(R0)/r
 
-mutationRate = 1
+mutationRate = 0.5
 mutationKernel = Normal(0, 1)
 mutationScale = std(mutationKernel)
 D = mutationRate*mutationScale^2/2
@@ -18,7 +18,7 @@ dtSampling = 1
 t = 0:dtSampling:tmax
 tTransient = 50
 
-(NAv, vAv, sigmaAv, uTAv) = simulateWaveStatisticsFull(R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, tTransient; xmax = 0, s = 0, D = 0, initialCond = "steadyState")
+(NAv, Nstd, vAv, sigmaAv, uTAv) = simulateWaveStatisticsFull(R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, tTransient; xmax = 1000, s = log(R0)/r, D = mutationRate*mutationScale^2/2, initialCond = "steadyState")
 
 # Fitness space paremeters
 
@@ -67,3 +67,24 @@ p = plot(rVect, wSol, xlims = (0, 0.3), ylims = (0, 0.3), colour = :coral, lw = 
 plot!(p, rVect, wtheo.(rVect, rcFit), colour = :black, label = "Best fit")
 plot!(p, rVect, rVect./(1 .+rVect), colour = :black, ls = :dash, label = "Haldane limit")
 vline!(p, [rcFit], c = :black, ls = :dashdot, label = raw"Matching point $r_c$")
+
+# Bulk wave
+bulkWave(r) = airyai((zeta-r)/d) * exp(-vs*r/2Ds)
+
+#Data 
+xEstablishment = 0.05
+baseFolder = "simulations/mutantGrowth/"
+println(pwd())
+fileName = "establishmentProbability_r$(r)R0$(R0)D$(D)xEst$(xEstablishment).csv"
+(vAvVect, uTAvVect, deltaRGrid, sGrid, nEstablished, nSimulated, establishmentProb, sigma) = Vector.(eachcol(CSV.read(joinpath(baseFolder, fileName), CSV.Tables.matrix)))
+
+
+
+rPlot = rVect[findfirst(rVect .>= -0.5rT): findfirst(rVect .>= 2rT)]
+q = scatter(deltaRGrid, establishmentProb, yerror = sigma, colour = :steelblue, lc = :steelblue, mc = :steelblue, ms = 5, msc = :steelblue, msw = 2, label = "Data")
+plot!(q, rPlot./rT, wSol[findfirst(rVect .>= -0.5rT): findfirst(rVect .>= 2rT)], xlims = (-0.5, 2), ylims = (0, 0.3), colour = :coral, lw = 2, xlabel = raw"$r$", ylabel = raw"Fixation probability $w(r)$", top_margin = 10Plots.pt, label = "Numerics")
+plot!(q, rPlot./rT, wtheo.(rPlot, rcFit), colour = :black, label = "Asymptotics", lw = 2)
+plot!(q, (-0.5rT:dr:1rT)./rT, bulkWave.(-0.5*rT:dr:1rT)./bulkWave(0).*0.19, c = :red, lw = 2, label = "Wave")
+plot!(q, rPlot./rT, rPlot./(1 .+ rPlot), lw = 1.5, ls = :dash, c = :black, label = "Haldane limit")
+vspan!(q, [-1, 1], color = :coral, alpha = 0.15, label = "Viral span")
+savefig(q, "figures/mutantGrowth/EstablishmentProbExample.svg")

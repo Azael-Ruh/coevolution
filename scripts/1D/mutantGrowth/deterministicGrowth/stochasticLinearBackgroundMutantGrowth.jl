@@ -222,7 +222,7 @@ plot!(tSampling, Mtheo, c = :coral, lw = 2, label = "Gaussian theory")
 # Average shape \equiv survival shape
 avm = sum([mGrid[i,:,:] for i in 1:nRuns])./nRuns
 avmtheo = Mtheo[end] .* exp.(-(x .- x0 .- s*D*tmax^2).^2 ./ (4*D*tmax)) ./ sqrt(4*pi*D*tmax) .* dx
-avmp = plot(x, avm[1:5:end,:]', label = "", xlabel = raw"$x$", ylabel = raw"$\langle m(x,t)\rangle$", palette = palette(:viridis, length(tSamplingDistribution[1:5:end])))
+avmp = plot(x, avm[1:20:end,:]', label = "", xlabel = raw"$x$", ylabel = raw"$\langle m(x,t)\rangle$", palette = palette(:viridis, length(tSamplingDistribution[1:5:end])))
 plot!(avmp, x, avm[end,:], label = "Last average profile", c = :black, lw = 2)
 plot!(avmp, x, avmtheo, label = "Gaussian theoretical profile", c = :coral, lw = 2)
 

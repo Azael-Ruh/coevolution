@@ -20,34 +20,34 @@ import Base: broadcastable
 #                   New types
 # ====================================================================
 
-struct picewiseKernel
+struct piecewiseKernel
     type::String
     nonLocalMutProb::Real
     nonLocalJump::Int
     localKernel::Distribution{Univariate, Continuous}
 end
 
-function broadcastable(mutKern::picewiseKernel)
+function broadcastable(mutKern::piecewiseKernel)
     return Ref(mutKern)
 end
 
-# function length(kern::picewiseKernel)
+# function length(kern::piecewiseKernel)
 #     return 1
 # end
 
-# function iterate(kern::picewiseKernel)
+# function iterate(kern::piecewiseKernel)
 #     return (picewiseKernel, nothing)
 # end
 
-# function iterate(kern::picewiseKernel, n::Nothing)
+# function iterate(kern::piecewiseKernel, n::Nothing)
 #     return n
 # end
 
-function params(mutKernel::picewiseKernel)
+function params(mutKernel::piecewiseKernel)
     (mutKernel.nonLocalMutProb, mutKernel.nonLocalJump, params(mutKernel.localKernel))
 end
 
-function std(mutKernel::picewiseKernel)
+function std(mutKernel::piecewiseKernel)
     return std(mutKernel.localKernel)*(1-mutKernel.nonLocalMutProb)
 end
 # ====================================================================
@@ -76,7 +76,7 @@ function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::Distribution{
     getDisplacement(nMutated, mutKernel)
 end
 
-function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::picewiseKernel)
+function getDisplacement(nMutated::Tuple{Int64, Int64}, mutKernel::piecewiseKernel)
     getDisplacement(nMutated, kernType(mutKernel), mutKernel.nonLocalMutProb, mutKernel.nonLocalJump, mutKernel.localKernel)
 end
 
@@ -222,7 +222,7 @@ function kernType(mutKernel::Distribution{Univariate, Continuous})
     return kernelType[1: findfirst('{', kernelType) - 1]
 end
 
-function kernType(mutKernel::picewiseKernel)
+function kernType(mutKernel::piecewiseKernel)
     return mutKernel.type
 end
 
@@ -230,7 +230,7 @@ function getDist(mutKernel::Distribution{Univariate, Continuous})
     return kernType(mutKernel) * "$(round(std(mutKernel)))"
 end
 
-function getDist(mutKernel::picewiseKernel)
+function getDist(mutKernel::piecewiseKernel)
     return kernType(mutKernel) * mutKernel.nonLocalJump * "prob" * mutKernel.nonLocalMutProb * "/" * getDist(mutKernel.localKernel)
 end
 

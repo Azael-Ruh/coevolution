@@ -129,7 +129,7 @@ mutationKernel = 2*Bernoulli(0.5) - 1
 mutationScale = std(mutationKernel)
 D = mutationRate * mutationScale^2 / 2
 
-tmax = 150
+tmax = 250
 dt = 0.001
 dtSampling = 0.1
 dtSamplingDistribution = 1
@@ -141,7 +141,7 @@ gaussianCond(x,x0,var) = exp.(-(x.-x0).^2 ./ 2var) ./ sum(exp.(-(x.-x0).^2 ./ 2v
 deltaCond(x,x0) = 1 .* (x .== x0)
 initialCondition = deltaCond #(x,x0) -> gaussianCond(x, x0, v0)
 
-nRuns = 1000
+nRuns = 2000
 
 mGrid = Array{Float64}(undef, nRuns, floor(Int, tmax/dtSamplingDistribution)+1, length(x))
 MGrid = Array{Float64}(undef, nRuns, floor(Int, tmax/dtSampling)+1)
