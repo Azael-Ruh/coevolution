@@ -7,7 +7,7 @@ mutationRate = 0.2
 mutationKernel = Normal(0, 2)
 tmax = 1000
 nRuns = 10
-Nh = 1000000
+Nh = 10000000
 
 dt = 0.1
 dtSampling = 1

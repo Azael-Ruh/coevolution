@@ -3,18 +3,18 @@
 #SBATCH --output=slurm.%A_%a.out
 #SBATCH --error=slurm.%A_%a.err
 
-#SBATCH --array=0-53        # 10 jobs
+#SBATCH --array=0-18        # 10 jobs
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2GB
-#SBATCH -t 0-10:00
+#SBATCH -t 0-48:00
 
 # ---- CONFIG ----
 SECONDS=0
 RSIZE=15
 R0SIZE=18
 TOTAL_LINES=$(( RSIZE * R0SIZE ))
-NJOBS=90
+NJOBS=270
 LINES_PER_JOB=$(( TOTAL_LINES / NJOBS))
 START=$(( SLURM_ARRAY_TASK_ID * LINES_PER_JOB ))
 END=$(( START + LINES_PER_JOB ))
@@ -30,7 +30,7 @@ while IFS= read -r line; do
 
         # Run the simulation
         julia ~/coevolution/scripts/1D/simulateWaveRunsCluster.jl \
-              "$r" "$R0" 0.2 "Normal(0, 2)" 1000000 1000 10 #Before Nh = 100000
+              "$r" "$R0" 0.2 "Normal(0, 2)" 10000000 1000 10 #Before Nh = 100000
     fi
     ((i++))
 done < /home/zayas-orihuela/coevolution/scripts/1D/params.txt
