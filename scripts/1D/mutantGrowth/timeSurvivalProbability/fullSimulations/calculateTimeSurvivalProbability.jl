@@ -1,4 +1,4 @@
-include("../../../../code/mutantGrowth/secondMutantStudy.jl")
+include("../../../../../code/mutantGrowth/secondMutantStudy.jl")
 
 r = 40
 R0 = 1.2
@@ -7,9 +7,9 @@ s = log(R0)/r
 mutationRate = 0.2
 mutationKernel = Normal(0, 1)
 mutationScale = std(mutationKernel)
-D = mutationRate*mutationScale^2/2
+D = mutationRate * mutationScale^2 / 2
 
-tmax = 500
+tmax = 2000
 
 vFKPP = 2 * sqrt((R0 - 1) * D)
 xmax = 2*max(500, round(Int, vFKPP*tmax + vFKPP^2/(D*s)))
@@ -21,7 +21,7 @@ dt = 0.1
 dtSampling = 1
 t = 0:dtSampling:tmax
 
-(Nt, xt, sigmat, uTt, absorbedState, idxAbsorbed, nxBack0, hxBack0) = simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
+(Nt, xt, sigmat, uTt, absorbedState, _, nxBack0, hxBack0) = simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
 
 tTransient = 50
 idxTransient = findfirst(t .== tTransient)
@@ -30,12 +30,10 @@ if absorbedState == 0
 end
 uTAv = mean(uTt[idxTransient:end])
 
-establishmentEvents = 30
-deltaRGrid = 0:0.05:3
-nEstablished = Vector{Float64}(undef, length(deltaRGrid))
-nSimulated = Vector{Float64}(undef, length(deltaRGrid))
-
-xEstablishment = 0.10
+tmax = 500
+deltaRGrid = 0:0.05:2
+totalRuns = 20
+tExtinction = Array{Float64, 2}(undef, length(deltaRGrid), totalRuns)
 
 for i in eachindex(deltaRGrid)
 
@@ -46,9 +44,11 @@ for i in eachindex(deltaRGrid)
     deltaRMutant =  deltaRGrid[i]
     duMutant = deltaRMutant * uTAv
 
-    nSimulated[i], nEstablished[i], searches = countMutantTillNEst(nxBack0, hxBack0, duMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x, establishmentEvents, maxSearches = 40, maxItrFixation = 300, xEstab = xEstablishment)
+    tExtinction[i,:] = produceMutantExtinctionTimes(nxBack0, hxBack0, duMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x, totalRuns)
 end
 
+nEstablished = [sum(tExtinction[i,:] .== tmax) for i in eachindex(deltaRGrid)]
+nSimulated = totalRuns*ones(lenght(deltaRGrid))
 establishmentProb = nEstablished ./ nSimulated
 sGrid = s .* uTAv .* deltaRGrid
 sigma = sqrt.((nEstablished .+ 1) .* (nSimulated .- nEstablished .+1) ./ ((nSimulated .+ 2).^2 .* (nSimulated .+ 3)))
@@ -63,6 +63,10 @@ vAvVect = [vAv; zeros(length(deltaRGrid)-1)]
 uTAvVect = [uTAv; zeros(length(deltaRGrid) -1)]
 survProbTable = Tables.table([vAvVect uTAvVect deltaRGrid sGrid nEstablished nSimulated establishmentProb sigma], header = ["vAv", "uTAv", "uM/uT", "sM", "nEstablished", "nSimulated", "establishmentProbability", "sigma(estProb)"])
 
-baseFolder = "simulations/mutantGrowth/"
-fileName = "establishmentProbability_r$(r)R0$(R0)D$(D)xEst$(xEstablishment).csv"
+baseFolder = "../../../simulations/mutantGrowth/"
+fileName = "establishmentProbability_r$(r)R0$(R0)D$(D)xEstFulltmax$(tmax).csv"
 CSV.write(joinpath(baseFolder, fileName), survProbTable)
+
+timeSurvivalTable = Tables.table([deltaRGrid tExtinction], header = ["deltaR"; ["run $(i)" for i in 1:totalRuns]])
+baseFolder = "../../../simulations/mutantGrowth/timeSurvivalProb"
+fileName = "extinctionTimes_r$(r)R0$(R0)D$(D)tmax$(tmax)totalRuns$(totalRuns).csv"

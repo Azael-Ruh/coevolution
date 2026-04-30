@@ -300,6 +300,95 @@ function countMutantTillNEst(nxBackground0, hxBackground0, dxMutant, r, R0, muta
     return totalSimulationNumber, totalEstablishedMutants, searches
 end
 
+function simulateMutantExtinction(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, x)
+    
+    # Cross-reactivity Kernel definition
+    H(x) = exp.(-abs.(x)/r)
+    if r == 0
+        Hkernel = [1]
+    else
+        Hkernel = H(-5*ceil(r):5*ceil(r))
+    end
+    HkernelHalfLength::Int = floor(length(Hkernel)/2)
+
+    # Variable initialisation
+    maxIdx = length(x)
+    nxBackgroundLoc = nxBackground0
+    hxLoc = hxBackground0
+
+
+    # Mutant initialisation
+    nxMutantLoc = (x .== round(Int, sum(x .* nxBackground0) / sum(nxBackground0) + dxMutant))
+
+    println("=============START OF THE SIMULATION==============")
+    t = 0:dt:tmax
+    tExtinction = tmax
+    mutantExtinct = false
+    backgroundExtinct = false
+    mutantEstablished = false
+
+    for i in 2:length(t)
+
+        # Virus growth
+        c = conv(hxLoc, Hkernel)[HkernelHalfLength + 1: end - HkernelHalfLength]
+        R = R0 .* exp.(-c ./ Nh)
+        
+        nxBackgroundGrowth = rand.(Poisson.(R .* nxBackgroundLoc .* dt))
+        nxBackgroundDeath = rand.(Poisson.(nxBackgroundLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
+        nxBackgroundLoc = max.(nxBackgroundLoc .+ nxBackgroundGrowth .- nxBackgroundDeath, 0)
+        
+        nxMutantGrowth = rand.(Poisson.(R .* nxMutantLoc .* dt))
+        nxMutantDeath = rand.(Poisson.(nxMutantLoc .* dt))
+        nxMutantLoc = max.(nxMutantLoc .+ nxMutantGrowth .- nxMutantDeath, 0)
+
+        nxDeath = nxMutantDeath + nxBackgroundDeath
+
+        # Mutations
+        nxBackgroundMutated = sparsevec(rand.(Binomial.(nxBackgroundLoc, 1 - exp(-mutationRate*dt)))) # 96.2 μs
+        mutationDisplacementsBackground = getDisplacement.(iszero(nxBackgroundMutated) ? [(0, 0)] : tuple.(nxBackgroundMutated.nzind, nxBackgroundMutated.nzval), mutationKernel) # 267.5 μs (~10 mut per x), 511.135 μs (~100 mut per x), 32.847 ms (~ 1000 mut per x)
+        nxBackgroundJump = displacementToJump.(mutationDisplacementsBackground, maxIdx) # 4.643 ms
+        nxBackgroundLoc = nxBackgroundLoc - Array(nxBackgroundMutated) + Array(sum(nxBackgroundJump)) # Move mutated viruses
+        
+        nxMutantMutated = sparsevec(rand.(Binomial.(nxMutantLoc, 1 - exp(-mutationRate*dt)))) # 96.2 μs
+        mutationDisplacementsMutant = getDisplacement.(iszero(nxMutantMutated) ? [(0, 0)] : tuple.(nxMutantMutated.nzind, nxMutantMutated.nzval), mutationKernel) # 267.5 μs (~10 mut per x), 511.135 μs (~100 mut per x), 32.847 ms (~ 1000 mut per x)
+        nxMutantJump = displacementToJump.(mutationDisplacementsMutant, maxIdx) # 4.643 ms
+        nxMutantLoc = nxMutantLoc - Array(nxMutantMutated) + Array(sum(nxMutantJump)) # Move mutated viruses
+
+        # Check for mutant extinction or establishment
+        mutantExtinct = iszero(nxMutantLoc)
+        backgroundExtinct = iszero(nxBackgroundLoc)
+        if mutantExtinct
+            tExtinction = t[i]
+            break
+        end
+        
+        # Immune evolution
+        hxLoc += nxDeath # Whenever someone recovers it means it has developped immunity
+    end 
+
+    if mutantExtinct
+        println("Mutant extinct")
+    elseif backgroundExtinct
+        println("Bulk replacement")
+    else
+        println("Transient coexistance")
+    end
+
+    println("Simulation end")
+    return (nxBackgroundLoc, nxMutantLoc, hxLoc, tExtinction)
+end
+
+function produceMutantExtinctionTimes(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x, nSimulations)
+    
+    tExtinction::Vector{Float64} = zeros(nSimulations)
+    for search in 1:nSimulations
+        println("Search nº $search")
+        _ , _ , _ , tExtinction[search] = simulateMutantExtinction(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, x)
+    end
+
+    return tExtinction
+end
+
 function simulateMutantGrowth(nxBackground0, hxBackground0, dxMutant, r, R0, mutationRate, mutationKernel, Nh, tmax, dt, dtSampling, x)
     # Cross-reactivity Kernel definition
     H(x) = exp.(-abs.(x)/r)

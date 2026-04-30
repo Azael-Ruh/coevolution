@@ -13,7 +13,7 @@ function probabilityUpdateRule!(dmdt, x, t, wVect, params)
 end
 
 v = 0.2
-D = 0.1
+D = 0.2
 s = 1e-3
 dx = 1
 x = -200:dx:250
@@ -52,7 +52,12 @@ function funcTofit(r, p)
     wf::Vector{Float64} = wTheoApprox.(r, rf)
 end
 
-rfArray = collect(v.*tSampling ./2 .* s - D*s^2 .* tSampling.^2/5)
+rfArray = Vector{Float64}(undef, length(tSampling))
+rfArray[1] = 0
+for i in eachindex(tSampling)[2:end]
+    rfArray[i] = max(rfArray[i-1], (v.*tSampling[i] ./2 .* s - D*s^2 .* tSampling[i].^2/5))
+end
+
 for i in eachindex(tSampling)[2:end]
     fit = LsqFit.curve_fit(funcTofit, s.*x, w[i, :], [rfArray[i]])
     rfArray[i] = fit.param[1]
