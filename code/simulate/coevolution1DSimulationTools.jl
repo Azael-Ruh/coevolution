@@ -163,10 +163,10 @@ function extinctionFlag(nx, x)
     return (flagCode, idxAbsorbed)
 end
 
-function getInitialCondition(distType::String, R0, r, mutationRate, mutationKernel, Nh, xmax)
+function getInitialCondition(distType::String, R0, r, mutationRate, mutationKernel, Nh, xmax; dx = 1)
     D = mutationRate .* std(mutationKernel)^2/2
     (N0, v, sigma) = getSteadyStateEstimate(R0, r, mutationRate, mutationKernel, Nh)
-    x = -Int(max(round(5*r), round(5*sigma))):xmax
+    x = -Int(max(round(5*r), round(5*sigma))):dx:xmax
     (nx0, hx0) =  initialDistribution(distType::String, sigma::Real, x, N0, r, R0, Nh, D)
     return (nx0, hx0, x)
 end
