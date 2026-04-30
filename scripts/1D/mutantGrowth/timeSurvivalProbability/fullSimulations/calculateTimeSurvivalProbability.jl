@@ -48,25 +48,26 @@ for i in eachindex(deltaRGrid)
 end
 
 nEstablished = [sum(tExtinction[i,:] .== tmax) for i in eachindex(deltaRGrid)]
-nSimulated = totalRuns*ones(lenght(deltaRGrid))
+nSimulated = totalRuns*ones(length(deltaRGrid))
 establishmentProb = nEstablished ./ nSimulated
 sGrid = s .* uTAv .* deltaRGrid
 sigma = sqrt.((nEstablished .+ 1) .* (nSimulated .- nEstablished .+1) ./ ((nSimulated .+ 2).^2 .* (nSimulated .+ 3)))
 sigma = [max(sigma[i], 1 / nSimulated[i]) for i in eachindex(sigma)]
 
 plotConfig()
-p = plot(deltaRGrid, sGrid ./(1 .+ sGrid), colour = :black, label = "Haldane-like limit", title = raw"Establishment probability for $r = 40, R_0=1.3, D =" * "$(round(D, sigdigits=2))" * raw",$" * "\n" * raw"and with $\langle{v}\rangle =" * "$(round(vAv, sigdigits=2))" * raw", \langle{u_T}\rangle =" * "$(round(uTAv,sigdigits=2))" * raw", x_\mathrm{est} = " * "$xEstablishment" * raw"$", titlefontsize = 14, topmargin = 10Plots.pt)
+p = plot(deltaRGrid, sGrid ./(1 .+ sGrid), colour = :black, label = "Haldane-like limit", title = raw"Survival probability for $r = 40, R_0=1.3, D =" * "$(round(D, sigdigits=2))" * raw",$" * "\n" * raw"and with $\langle{v}\rangle =" * "$(round(vAv, sigdigits=2))" * raw", \langle{u_T}\rangle =" * "$(round(uTAv,sigdigits=2))" * raw", t_\mathrm{max} = " * "$tmax" * raw"$", titlefontsize = 14, topmargin = 10Plots.pt)
 plot!(p, deltaRGrid, establishmentProb, xlabel = raw"$u/u_T$", ylabel = "Establishment probability", yerror = sigma, colour = :steelblue, lc = :steelblue, mc = :steelblue, label = "Data")
-savefig(p, "figures/mutantGrowth/EstablishmentProbabilityxEst$(xEstablishment).png")
+# savefig(p, "figures/mutantGrowth/EstablishmentProbabilityxEst$(xEstablishment).png")
 
 vAvVect = [vAv; zeros(length(deltaRGrid)-1)]
 uTAvVect = [uTAv; zeros(length(deltaRGrid) -1)]
 survProbTable = Tables.table([vAvVect uTAvVect deltaRGrid sGrid nEstablished nSimulated establishmentProb sigma], header = ["vAv", "uTAv", "uM/uT", "sM", "nEstablished", "nSimulated", "establishmentProbability", "sigma(estProb)"])
 
-baseFolder = "../../../simulations/mutantGrowth/"
+baseFolder = "simulations/mutantGrowth/"
 fileName = "establishmentProbability_r$(r)R0$(R0)D$(D)xEstFulltmax$(tmax).csv"
 CSV.write(joinpath(baseFolder, fileName), survProbTable)
 
 timeSurvivalTable = Tables.table([deltaRGrid tExtinction], header = ["deltaR"; ["run $(i)" for i in 1:totalRuns]])
-baseFolder = "../../../simulations/mutantGrowth/timeSurvivalProb"
+baseFolder = "simulations/mutantGrowth/timeSurvivalProb"
 fileName = "extinctionTimes_r$(r)R0$(R0)D$(D)tmax$(tmax)totalRuns$(totalRuns).csv"
+CSV.write(joinpath(baseFolder, fileName), timeSurvivalTable)
