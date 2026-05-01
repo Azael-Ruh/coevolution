@@ -356,21 +356,33 @@ function simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt
             idxAbsorbed > 0 || (idxAbsorbed = i)
             if uTt[findlast(uTt .> 0)] < sigmat[findlast(uTt .> 0)]
                 absorbedState = 2
-                println("WARNING: virus escaped")
             else
                 absorbedState = 1
-                println("WARNING: virus absorbed")
             end
         end
 
         # Sampling
         if i % idxSampling == 1
-            Nt[Int((i - 1) / idxSampling + 1)] = sum(nxLoc)
-            xt[Int((i - 1) / idxSampling + 1)] = sum(x .* nxLoc) ./ Nt[Int((i - 1) / idxSampling + 1)]
-            sigmat[Int((i - 1) / idxSampling + 1)] = sqrt(sum(x .^2 .* nxLoc) / Nt[Int((i - 1) / idxSampling + 1)] - xt[Int((i - 1) / idxSampling + 1)]^2)
-            uTt[Int((i - 1) / idxSampling + 1)] = x[findlast(nxLoc .> 0)] - xt[Int((i - 1) / idxSampling + 1)]
+            if absorbedState == 0
+                Nt[Int((i - 1) / idxSampling + 1)] = sum(nxLoc)
+                xt[Int((i - 1) / idxSampling + 1)] = sum(x .* nxLoc) ./ Nt[Int((i - 1) / idxSampling + 1)]
+                sigmat[Int((i - 1) / idxSampling + 1)] = sqrt(sum(x .^2 .* nxLoc) / Nt[Int((i - 1) / idxSampling + 1)] - xt[Int((i - 1) / idxSampling + 1)]^2)
+                uTt[Int((i - 1) / idxSampling + 1)] = x[findlast(nxLoc .> 0)] - xt[Int((i - 1) / idxSampling + 1)]
+            else
+                Nt[Int((i - 1) / idxSampling + 1)] = 0
+                xt[Int((i - 1) / idxSampling + 1)] = NaN
+                sigmat[Int((i - 1) / idxSampling + 1)] = 0
+                uTt[Int((i - 1) / idxSampling + 1)] = NaN
+            end
         end
     end 
+
+    if absorbedState == 2
+        println("WARNING: abosrbed state = $absorbedState, virus escaped")
+    elseif absorbedState == 1
+        println("WARNING: abosrbed state = $absorbedState, virus absorbed")
+    end
+        
 
     println("Simulation end")
     return Nt, xt, sigmat, uTt, absorbedState, idxAbsorbed, nxLoc, hxLoc
