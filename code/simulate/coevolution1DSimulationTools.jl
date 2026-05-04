@@ -354,7 +354,7 @@ function simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt
         # Absorbtion index
         if iszero(nxLoc)
             idxAbsorbed > 0 || (idxAbsorbed = i)
-            if uTt[findlast(uTt .> 0)] < sigmat[findlast(uTt .> 0)]
+            if xt[findlast(uTt .> 0)] + uTt[findlast(uTt .> 0)] < x[end] - 2*sigmat[findlast(uTt .> 0)]
                 absorbedState = 2
             else
                 absorbedState = 1

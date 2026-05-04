@@ -1,9 +1,9 @@
 include("../../code/simulate/coevolution1DSimulationTools.jl")
 
 r = 40
-R0 = 1.3
-mutationRate = 0.18
-xmax::Int64 = 2000
+R0 = 1.2
+mutationRate = 0.3
+xmax::Int64 = 1000
 Nh::Int64 = 1e7
 
 nonLocalJump = 0
@@ -13,12 +13,13 @@ mutationKernel = Normal(0,1) # piecewiseKernel("piecewise", nonLocalMutProb, non
 
 (nx0, hx0, x) = getInitialCondition("steadyState", R0, r, mutationRate, mutationKernel, Nh, xmax)
 
-tmax = 4000
+tmax = 2000
 dt = 0.1
-dtSampling = 1
+dtSampling = 2
 
 (Nt, xt, sigmat, uTt, absorbedState, idxAbsorbed, nxLoc, hxLoc) = simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
 
 (nx, hx) = simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
 
 p = plotSimulationSummary(nx, hx, xmax, r, R0)
+# g = animateSimulation(nx, hx, x, Nh)
