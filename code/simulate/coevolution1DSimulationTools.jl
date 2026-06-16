@@ -650,7 +650,7 @@ function plotWaveShape(nx, hx, xmax, r, R0, Nh)
     plot!([], [], label=raw"$f(x,t)/R_0$", colour=:lightsalmon, lw = 2)
     plot!(twinx(), x[waveRange], f[waveRange] ./ R0, colour=:lightsalmon, lw=2, ylabel = raw"$f(x,t)/R_0$", frame = :semi)
     plot!(widen = :false)
-    hline!([ylims(p1)[2]], lc=:black, lw=1.5)
+    hline!([ylims(p1)[2]], lc=:black, lw=1.5, label = "")
 
     p = plot(p1, foreground_color_legend = nothing)
     display(p)
