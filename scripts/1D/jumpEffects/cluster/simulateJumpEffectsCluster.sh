@@ -24,13 +24,13 @@ i=0
 while IFS= read -r line; do
     if (( i >= START && i < END )); then
         # Extract parameters from line
-        read r R0 mu mutKernel Nh tmax totalRuns <<< "$line"
+        read r R0 mu mutKernel localKernel Nh tmax totalRuns <<< "$line"
 
-        echo "Job $SLURM_ARRAY_TASK_ID running parameters: r=$r, R0=$R0, mu=$mu, mutKernel=$mutKernel, Nh=$Nh, tmax=$tmax, nRuns=$totalRuns"
+        echo "Job $SLURM_ARRAY_TASK_ID running parameters: r=$r, R0=$R0, mu=$mu, mutKernel=$mutKernel, localKernel=$localKernel Nh=$Nh, tmax=$tmax, nRuns=$totalRuns"
 
         # Run the simulation
         julia ~/coevolution/scripts/1D/jumpEffects/cluster/calculateJumpEffectsCluster.jl \
-              "$r" "$R0" "$mu" "$mutKernel" "$Nh" "$tmax" "$totalRuns"
+              "$r" "$R0" "$mu" "$mutKernel" "$localKernel" "$Nh" "$tmax" "$totalRuns"
     fi
     ((i++))
 done < /home/zayas-orihuela/coevolution/scripts/1D/jumpEffects/cluster/params.txt
