@@ -1,3 +1,5 @@
+using JLD2
+
 include(expanduser("~/coevolution/code/mutantGrowth/secondMutantStudy.jl"))
 
 r = parse(Int, ARGS[1])
@@ -12,10 +14,10 @@ D = mutationRate * mutationScale^2 / 2
 
 Nh = parse(Int, ARGS[6])
 
-tmax = 2000
+tmax = 6000
 
 vFKPP = 2 * sqrt((R0 - 1) * D)
-xmax = 4*max(500, round(Int, vFKPP*tmax + vFKPP^2/(D*s)))
+xmax = 6*max(500, round(Int, vFKPP*tmax + vFKPP^2/(D*s)))
 
 (nx0, hx0, x) = getInitialCondition("steadyState", R0, r, mutationRate, mutationKernel, Nh, xmax)
 
@@ -51,8 +53,8 @@ println(".\n.\n.\n.\n.\n.")
 vMod = 0
 NMod = 0
 survivedRuns = 0
-for run in 1:totalRuns
-    println("run $run")
+while survivedRuns < totalRuns
+    println("run $survivedRuns")
     (NtJump, xtJump, sigmatJump, uTtJump, absorbedStateJump, idxAbsorbedJump, _, _) = simulateWaveMacro(nxBack0, hxBack0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
     newV = (xtJump[end] - xtJump[idxTransient]) / (t[end] - t[idxTransient])
     newN = mean(NtJump[idxTransient:end])
@@ -67,6 +69,10 @@ if survivedRuns > 0
     vMod = vMod / survivedRuns
     NMod = NMod / survivedRuns
     println("Speed before = $vAv, new speed = $vMod, size before = $NAv, new size = $NMod, calculated through $survivedRuns survived simulations.")
+    
+    saveDir = expanduser("~/coevolution/simulations/jumpEffects")
+    saveFile = "jumpEffects_r$(r)R0$(R0)D$(round(D, sigdigits = 2))tmax$(tmax)totalRuns$(totalRuns)Delta$(mutationKernel.nonLocalJump).jld2"
+    jldsave(joinpath(saveDir, saveFile); vMod, NMod, survivedRuns)
 else
     println("ERROR: No survived runs found :(")
 end
