@@ -30,7 +30,7 @@ while IFS= read -r line; do
 
         # Run the simulation
         julia ~/coevolution/scripts/1D/jumpEffects/cluster/calculateJumpEffectsCluster.jl \
-              "$r" "$R0" "$mu" "$mutKernel" "$localKernel" "$Nh" "$tmax" "$totalRuns"
+              "$r" "$R0" "$mu" "$mutKernel" "$localKernel" "$Nh" "$tmax" "1"
     fi
     ((i++))
 done < /home/zayas-orihuela/coevolution/scripts/1D/jumpEffects/cluster/params.txt

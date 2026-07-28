@@ -53,6 +53,7 @@ println(".\n.\n.\n.\n.\n.")
 vMod = 0
 NMod = 0
 survivedRuns = 0
+nRuns = 0
 while survivedRuns < totalRuns
     println("run $survivedRuns")
     (NtJump, xtJump, sigmatJump, uTtJump, absorbedStateJump, idxAbsorbedJump, _, _) = simulateWaveMacro(nxBack0, hxBack0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
@@ -63,6 +64,7 @@ while survivedRuns < totalRuns
     global vMod += (absorbedStateJump == 0 ? newV : 0)
     global NMod += (absorbedStateJump == 0 ? newN : 0)
     global survivedRuns += 1*(absorbedStateJump == 0)
+    global nRuns += 1
 end
 
 if survivedRuns > 0
@@ -72,7 +74,7 @@ if survivedRuns > 0
     
     saveDir = expanduser("~/coevolution/simulations/jumpEffects")
     saveFile = "jumpEffects_r$(r)R0$(R0)D$(round(D, sigdigits = 2))tmax$(tmax)totalRuns$(totalRuns)Delta$(mutationKernel.nonLocalJump).jld2"
-    jldsave(joinpath(saveDir, saveFile); vMod, NMod, survivedRuns)
+    jldsave(joinpath(saveDir, saveFile); vMod, NMod, survivedRuns, nRuns)
 else
     println("ERROR: No survived runs found :(")
 end
