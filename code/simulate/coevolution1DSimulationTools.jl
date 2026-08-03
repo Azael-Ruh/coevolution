@@ -31,18 +31,6 @@ function broadcastable(mutKern::piecewiseKernel)
     return Ref(mutKern)
 end
 
-# function length(kern::piecewiseKernel)
-#     return 1
-# end
-
-# function iterate(kern::piecewiseKernel)
-#     return (picewiseKernel, nothing)
-# end
-
-# function iterate(kern::piecewiseKernel, n::Nothing)
-#     return n
-# end
-
 function params(mutKernel::piecewiseKernel)
     (mutKernel.nonLocalMutProb, mutKernel.nonLocalJump, params(mutKernel.localKernel))
 end
@@ -634,7 +622,7 @@ function plotWaveShape(nx, hx, xmax, r, R0, Nh)
     x = xmax-size(nx)[2]+1:xmax
 
     (absorbedState, idxAbsorbed) = extinctionFlag(nx, x)
-    absorbedState > 0 ? idx = idxAbsorbed/2 : idx = size(nx)[1]
+    absorbedState > 0 ? idx = round(Int, idxAbsorbed/2) : idx = size(nx)[1]
 
     waveRange = max(findfirst(nx[idx, :] .> 0)-5,1):min(findlast(nx[idx, :] .> 0)+5,length(x))
     
@@ -667,6 +655,23 @@ function animateSimulation(nx, hx, x, Nh)
         p = plot(x, nx[i, :], colour=:coral, ylims=[0, maximum(nx)], ylabel=raw"Viral density", xlabel=raw"$x$", label = "")
         plot!(twinx(), x, hx[i, :] ./ Nh, colour = :steelblue, background_color_legend = :white, yaxis = raw"Immune memories", ylims = [0, 1], label = "")
         plot!([], [], color = :coral, label = raw"$n(x,t)$")
+        plot!([], [], color = :steelblue, label = raw"$h(x,t)/N_h$", legend_pos = :topright)
+    end
+
+    g = gif(animation)
+    display(g)
+
+    return g
+end
+
+function animateSimulationLog(nx, hx, x, Nh)
+    
+    (absorbedState, idxAbsorbed) = extinctionFlag(nx, x)
+
+    animation = @animate for i in 1:(absorbedState > 0 ? min(idxAbsorbed + 100, size(nx)[1])  : size(nx)[1])
+        p = plot(x, replace(log.(nx[i, :]), -Inf=>-1), colour=:coral, ylims=[-1, log(maximum(nx))], ylabel=raw"log(Viral density)", xlabel=raw"$x$", label = "")
+        plot!(twinx(), x, hx[i, :] ./ Nh, colour = :steelblue, background_color_legend = :white, yaxis = raw"log(Immune memories)", ylims = [0, 0.5], label = "")
+        plot!([], [], color = :coral, label = raw"$\log\,n(x,t)$")
         plot!([], [], color = :steelblue, label = raw"$h(x,t)/N_h$", legend_pos = :topright)
     end
 
