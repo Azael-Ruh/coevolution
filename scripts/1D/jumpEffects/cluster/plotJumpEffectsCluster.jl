@@ -23,6 +23,8 @@ totalRuns = parse(Int, ARGS[9])
 
 saveDir = expanduser("~/coevolution/simulations/jumpEffects")
 newVMat = Array{Float64}(undef, length(nonLocalJumpVect), length(mutationRateVect))
+newNMat = Array{Float64}(undef, length(nonLocalJumpVect), length(mutationRateVect))
+survivalProb = Array{Float64}(undef, length(nonLocalJumpVect), length(mutationRateVect))
 
 for i in eachindex(nonLocalJumpVect), j in eachindex(mutationRateVect)
 
@@ -35,8 +37,11 @@ for i in eachindex(nonLocalJumpVect), j in eachindex(mutationRateVect)
     if isfile(filePath)
         vars = load(filePath)
         newVMat[i, j] = vars["vMod"]
+        newNMat[i, j] = vars["NMod"]
+        survivalProb[i, j] = vars["survivedRuns"] / vars["nRuns"]
     else
         newVMat[i, j] = NaN
+        newNMat[i, j] = NaN
     end
 end
 
@@ -45,6 +50,8 @@ pHeatmap = heatmap(nonLocalJumpVect, mutationRateVect, newVMat', c = cgrad(:magm
 pIndividualLines = plot(nonLocalJumpVect, [mutationRateVect[i] .* ones(size(nonLocalJumpVect)) for i in eachindex(mutationRateVect)], [newVMat[:, i] for i in eachindex(mutationRateVect)], cmap = permutedims([palette(:magma, length(mutationRateVect))...]), xlabel = raw"$\Delta$", ylabel = raw"$\mu$", zlabel = raw"$\bar{v}$", framestyle=:axis, grid = true, camera = (10, 40))
 p2D = plot(nonLocalJumpVect, [newVMat[:, i] for i in eachindex(mutationRateVect)], cmap = permutedims([palette(:magma, length(mutationRateVect))...]), xlabel = raw"$\Delta$", ylabel = raw"$\bar{v}$")
 
+pHeatmapSurvProb = heatmap(nonLocalJumpVect, mutationRateVect, 1 .- survivalProb', c = cgrad([cgrad(:blues,3)[3], cgrad(:blues,3)[2], cgrad(:blues,3)[1], :white]), xlabel = raw"$\Delta$", ylabel = raw"$\mu$", title = "Extinction probability", titlefontszie = 20)
+
 baseFolder = expanduser("~/coevolution/")
 figDir = baseFolder * "figures/macroscopicEffects/"
 isdir(figDir) || mkpath(figDir)
@@ -52,3 +59,8 @@ isdir(figDir) || mkpath(figDir)
 savefig(pHeatmap, joinpath(figDir, "speedEffectsHeatmap_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).png"))
 savefig(pIndividualLines, joinpath(figDir, "speedEffectsIndividualLines_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).png"))
 savefig(p2D, joinpath(figDir, "speedEffects2D_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).png"))
+
+savefig(pHeatmapSurvProb, joinpath(figDir, "survivalProbHeatmap_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).png"))
+
+jldsave(joinpath(saveDir, "jumpEffectsSpeed_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).jld2"); mutationRateVect, nonLocalJumpVect, newVMat)
+jldsave(joinpath(saveDir, "jumpEffectsSize_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).jld2"); mutationRateVect, nonLocalJumpVect, newNMat)
