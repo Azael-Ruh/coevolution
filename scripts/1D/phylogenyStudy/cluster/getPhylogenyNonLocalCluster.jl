@@ -6,7 +6,7 @@ R0 = parse(Float64, ARGS[2])
 Nh::Int = parse(Float64, ARGS[7])
 mu = parse(Float64, ARGS[3])
 localKernel = eval(Meta.parse(ARGS[4]))
-nonLocalJump = parse(Float64, ARGS[5])
+nonLocalJump = parse(Int, ARGS[5])
 nonLocalMutProb = parse(Float64, ARGS[6])
 mutationKernel = piecewiseKernel("piecewise", nonLocalMutProb, nonLocalJump, localKernel)
 mParams = modelParams(r, R0, Nh, mu, mutationKernel)
@@ -22,13 +22,13 @@ x = first(x):last(x)
 viDist = viralImmuneDistribution(x, nx0, hx0)
 getGrowthRate!(viDist, mParams)
 
-nMRCAsamples = 5
-NVirus4Times = 2000
+nMRCAsamples = 10
+NVirus4Times = 2500
 histogramEdges = 0:1:tmax*nMRCAsamples
 MRCAtimesHistogram = fit(Histogram, Float64[], histogramEdges)
 sampledWeights = Matrix{Int64}(undef, nMRCAsamples, length(histogramEdges) - 1)
 
-#TODO: check for extinction! -> Check it works!
+#TODO: check for extinction! -> Check it works! -> Does not seem to be working!!!
 for sample in 1:nMRCAsamples
     println("Starting sample $sample at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
 
@@ -41,8 +41,11 @@ for sample in 1:nMRCAsamples
 
     while simulationFailed
         println("WARNING: virus extinct. Restarting simulation")
-        viDist = viralImmuneDistribution(x, nx0, hx0)
+        global viDist = viralImmuneDistribution(x, nx0, hx0)
         getGrowthRate!(viDist, mParams)
+        
+        println("Starting sample $sample at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
+        simulationFailed = false
         @time for t in time
             simulationStep!(viDist, mParams, simSet, t) || (simulationFailed = true; break)
         end
