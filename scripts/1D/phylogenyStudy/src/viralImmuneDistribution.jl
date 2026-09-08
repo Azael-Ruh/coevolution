@@ -66,7 +66,7 @@ mutable struct viralImmuneDistribution
 end
 
 """
-    viralImmuneDistribution(x::Vector{<:Real}, nx::Vector{<:Integer}, hx::Vector{<:Integer})::viralImmuneDistribution
+    viralImmuneDistribution(x::UnitRange{<:Integer}, nx::Vector{<:Integer}, hx::Vector{<:Integer})::viralImmuneDistribution
 
 Produces an instance of viralImmuneDistribution population with space vector `x`, viral distribution `nx`, immune distribution `hx` and viral population initialised from `nx`.
 
@@ -149,9 +149,9 @@ function reproduceViralDistribution!(viDist::viralImmuneDistribution, nxGrowth::
 end
 
 """
-   reproductionStep!(viDist::viralImmuneDistribution, simSet::simulationConfig)::Vector{<:Integer}
+   reproductionStep!(viDist::viralImmuneDistribution, simSet::simulationConfig, t::Real = 0)::Vector{<:Integer}
 
-Performs a reproduction simulation step in the viral distribution `viDist`, following `viDist.Reff` and the timestep in `simSet.dt`.
+Performs a reproduction simulation step in the viral distribution `viDist`, following `viDist.Reff` and the timestep in `simSet.dt`, annotating the reproductions at time `t`.
 
 # Examples
 ```julia-repl
@@ -168,7 +168,7 @@ function reproductionStep!(viDist::viralImmuneDistribution, simSet::simulationCo
 end
 
 """
-   mutateViralDistribution!(viDist::viralImmuneDistribution, mParams::modelParams, nxMutated::Vector{<:Integer}, t::Real = 0)
+   mutateViralDistribution!(viDist::viralImmuneDistribution, mParams::modelParams, nxMutated::Vector{<:Integer}, t::Real = 0)::Bool
 
 Mutates the viral distribution in `viDist` with the mutations given by `nxMutated`, following `mParams.mutationKernel` and annotating it at time `t`.
 
@@ -177,20 +177,24 @@ Mutates the viral distribution in `viDist` with the mutations given by `nxMutate
 julia>
 ```
 """
-function mutateViralDistribution!(viDist::viralImmuneDistribution, mParams::modelParams, nxMutated::Vector{<:Integer}, t::Real = 0)
+function mutateViralDistribution!(viDist::viralImmuneDistribution, mParams::modelParams, nxMutated::Vector{<:Integer}, t::Real = 0)::Bool
 
+    nonLocalFlag = false
     viralJumps = zero(nxMutated)
 
     idxGrowth = findall(x -> x > 0, nxMutated)
     for idx in idxGrowth
-        viralJumps += mutateNVirusAt!(viDist, mParams.mutationKernel, nxMutated[idx], idx, t)
+        jump, flag = mutateNVirusAt!(viDist, mParams.mutationKernel, nxMutated[idx], idx, t)
+        viralJumps += jump
+        nonLocalFlag |= flag
     end
 
     viDist.nx += viralJumps - nxMutated
+    return nonLocalFlag
 end
 
 """
-   mutateNVirusAt!(viDist::viralImmuneDistribution, mParams::modelParams, N::Integer, idx::Integer, t::Real = 0)::Vector{<:Integer}
+   mutateNVirusAt!(viDist::viralImmuneDistribution, mParams::modelParams, N::Integer, idx::Integer, t::Real = 0)::Tuple{Vector{<:Integer}, Bool}
 
 Mutates `N` virus from position `idx` to positions sampled from `mParams.mutationKernel` and annotates it at time `t` in `viDist`, returning a vector with the mutated viral density. CAUTION: does not update `viDist.nx`
 
@@ -199,7 +203,7 @@ Mutates `N` virus from position `idx` to positions sampled from `mParams.mutatio
 julia>
 ```
 """
-function mutateNVirusAt!(viDist::viralImmuneDistribution, mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}, piecewiseKernel}, N::Integer, idx::Integer, t::Real = 0)::Vector{<:Integer}
+function mutateNVirusAt!(viDist::viralImmuneDistribution, mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}, piecewiseKernel}, N::Integer, idx::Integer, t::Real = 0)::Tuple{Vector{<:Integer}, Bool}
 
     numVirus = viDist.nx[idx]
 
@@ -208,8 +212,7 @@ function mutateNVirusAt!(viDist::viralImmuneDistribution, mutationKernel::Union{
     N > 0 || throw(ArgumentError("The number of viruses to mutate must be positive"))
     N > numVirus && throw(ArgumentError("The number of viruses to mutate ($N) cannot exceed the number of viruses ($numVirus) in the designed position"))
 
-    #TODO: think about non-local jump flagging
-    mutDisplacements = getMutationDisplacements(mutationKernel, N)
+    mutDisplacements, nonLocalFlag = getMutationDisplacements(mutationKernel, N)
     newIndices = round.(Int, mutDisplacements .+ idx)
     clamp!(newIndices, 1, length(viDist.space))
 
@@ -220,11 +223,11 @@ function mutateNVirusAt!(viDist::viralImmuneDistribution, mutationKernel::Union{
     mutJumps = zero(viDist.nx)
     [mutJumps[idx] += 1 for idx in newIndices]
 
-    return mutJumps
+    return mutJumps, nonLocalFlag
 end
 
 """
-   getMutationDisplacements(mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}}, N::Integer)::Vector{<:Real}
+   getMutationDisplacements(mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}}, N::Integer)::Tuple{Vector{<:Real}, Bool}
 
 Returns `N` displacements sampled from distibution `mutationKernel`.
 
@@ -233,12 +236,12 @@ Returns `N` displacements sampled from distibution `mutationKernel`.
 julia>
 ```
 """
-function getMutationDisplacements(mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}}, N::Integer)::Vector{<:Real}
-    return Distributions.rand!(mutationKernel, zeros(N))
+function getMutationDisplacements(mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}}, N::Integer)::Tuple{Vector{<:Real}, Bool}
+    return Distributions.rand!(mutationKernel, zeros(N)), false
 end
 
 """
-   getMutationDisplacements(mutationKernel::piecewiseKernel, Distribution{Univariate, Discrete}}, N::Integer)::Vector{<:Real}
+   getMutationDisplacements(mutationKernel::piecewiseKernel, Distribution{Univariate, Discrete}}, N::Integer)::Tuple{Vector{<:Real}, Bool}
 
 Returns `N` displacements sampled from the picewise distribution `mutationKernel`.
 
@@ -247,9 +250,9 @@ Returns `N` displacements sampled from the picewise distribution `mutationKernel
 julia>
 ```
 """
-function getMutationDisplacements(mutationKernel::piecewiseKernel, N::Integer)::Vector{<:Real}
+function getMutationDisplacements(mutationKernel::piecewiseKernel, N::Integer)::Tuple{Vector{<:Real}, Bool}
     nNonLocal = rand(Binomial(N, mutationKernel.nonLocalMutProb))
-    return [Distributions.rand!(localKernel, zeros(N - nNonLocal)); mutationKernel.nonLocalJump .* ones(nNonLocal)]
+    return [Distributions.rand!(localKernel, zeros(N - nNonLocal)); mutationKernel.nonLocalJump .* ones(nNonLocal)], nNonLocal > 0
 end
 
 """
@@ -262,13 +265,13 @@ Performs a mutation simulation step in the viral distribution `viDist`, with hom
 julia>
 ```
 """
-function mutationStep!(viDist::viralImmuneDistribution, mParams::modelParams,simSet::simulationConfig, t::Real = 0)::Vector{<:Integer}
+function mutationStep!(viDist::viralImmuneDistribution, mParams::modelParams,simSet::simulationConfig, t::Real = 0)::Tuple{Vector{<:Integer}, Bool}
 
     nxMutated = rand.(Poisson.(mParams.mutationRate .* viDist.nx .* simSet.dt))
     nxMutated = clamp.(nxMutated, zero(nxMutated), viDist.nx)
     
-    mutateViralDistribution!(viDist, mParams, nxMutated, t)
-    return nxMutated
+    nonLocalFlag = mutateViralDistribution!(viDist, mParams, nxMutated, t)
+    return nxMutated, nonLocalFlag
 end
 
 
@@ -311,23 +314,23 @@ function deathStep!(viDist::viralImmuneDistribution, simSet::simulationConfig)::
 end
 
 """
-   simulationStep!(viDist::viralImmuneDistribution, mParams::modelParams, simSet::simulationConfig, t::Real = 0)::Bool
+   simulationStep!(viDist::viralImmuneDistribution, mParams::modelParams, simSet::simulationConfig, t::Real = 0)::Tuple{Bool, Bool}
 
-Performs a simulation step in the viral distribution `viDist`, with parameters `mParams`, timestep `simSet.dt`, annotates it at time `t`, and returns the extinction state (true if not extinct) of the distribution.
+Performs a simulation step in the viral distribution `viDist`, with parameters `mParams`, timestep `simSet.dt`, annotates it at time `t`, and returns the extinction state (true if not extinct) and whether a non-local event has happened or not in the last step.
 
 # Examples
 ```julia-repl
 julia>
 ```
 """
-function simulationStep!(viDist::viralImmuneDistribution, mParams::modelParams, simSet::simulationConfig, t::Real = 0)::Bool
+function simulationStep!(viDist::viralImmuneDistribution, mParams::modelParams, simSet::simulationConfig, t::Real = 0)::Tuple{Bool, Bool}
 
     reproductionStep!(viDist, simSet, t)
-    mutationStep!(viDist, mParams, simSet, t)
+    _, nonLocalFlag = mutationStep!(viDist, mParams, simSet, t)
     hxGrowth = deathStep!(viDist, simSet)
     getImmuneUpdate!(viDist, mParams, hxGrowth)
 
-    return !iszero(viDist.nx)
+    return !iszero(viDist.nx), nonLocalFlag
 end
 
 """

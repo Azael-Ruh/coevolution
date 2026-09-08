@@ -36,7 +36,8 @@ for sample in 1:nMRCAsamples
     
     simulationFailed = false
     @time for t in time
-        simulationStep!(viDist, mParams, simSet, t) || (simulationFailed = true; break)
+        survivalFlag, _ = simulationStep!(viDist, mParams, simSet, t) 
+        survivalFlag || (simulationFailed = true; break)
     end # ~
 
     while simulationFailed

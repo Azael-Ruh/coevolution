@@ -52,7 +52,6 @@ function initialiseViralPopulation(x::UnitRange{<:Integer}, nx::Vector{<:Integer
     viralPopulation(x, viralNodes)
 end
 
-# TODO: reproduce multiple viruses!
 """
     reproduceVirus!(vPop::viralPopulation, positionIdx::Integer, t::Real = 0)
 

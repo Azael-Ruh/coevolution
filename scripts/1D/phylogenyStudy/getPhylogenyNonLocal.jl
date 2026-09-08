@@ -22,17 +22,20 @@ x = first(x):last(x)
 viDist = viralImmuneDistribution(x, nx0, hx0)
 getGrowthRate!(viDist, mParams)
 
-nMRCAsamples = 20
+nMRCAsamples = 40
+NVirus4Times = 1000
 histogramEdges = 0:1:tmax*nMRCAsamples
 MRCAtimesHistogram = fit(Histogram, Float64[], histogramEdges)
 sampledWeights = Matrix{Int64}(undef, nMRCAsamples, length(histogramEdges) - 1)
 
+#TODO: check for extinction!
 for sample in 1:nMRCAsamples
     println("Starting sample $sample at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
 
     time = ((sample - 1)*simSet.tmax ):simSet.dt:(sample*simSet.tmax - simSet.dt)
     @time for t in time
-        simulationStep!(viDist, mParams, simSet, t) || (println("WARNING: virus extinct"); break)
+        survivalFlag, _ = simulationStep!(viDist, mParams, simSet, t)    
+        survivalFlag || (println("WARNING: virus extinct"); break)
     end # ~
 
     println("Finished simulation at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
@@ -41,7 +44,7 @@ for sample in 1:nMRCAsamples
 
     println("Translated distrbution back to xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
 
-    @time newMRCAtimes = getMRCAtimes(viDist.viralPop, 2000)
+    @time newMRCAtimes = getMRCAtimes(viDist.viralPop, (NVirus4Times > sum(viDist.nx) ? sum(viDist.nx) : NVirus4Times))
     any(newMRCAtimes == Inf) && println("Initial condition still not forgotten")
 
     newHist = fit(Histogram, newMRCAtimes, histogramEdges)
@@ -49,9 +52,9 @@ for sample in 1:nMRCAsamples
 end
 
 weights = dropdims(sum(sampledWeights, dims = 1), dims = 1)
-maxMRCAtime = findlast(weights .> 0)+1
-finalSensitivity = 18
-finalEdges = push!(collect(0:finalSensitivity:maxMRCAtime), maxMRCAtime)
+maxMRCAtime = findlast(weights .> 0)
+finalSensitivity = 10
+finalEdges = push!(collect(0:finalSensitivity:maxMRCAtime - 1), maxMRCAtime)
 finalHist = fit(Histogram, Float64[], finalEdges)
 finalHist.weights = [sum(weights[finalEdges[i] + 1:finalEdges[i+1]]) for i in 1:(length(finalEdges)-1)]
 

@@ -1,22 +1,22 @@
 include("../../code/simulate/coevolution1DSimulationTools.jl")
 using FFTW
 
-r = 18
-R0 = 1.35
-mutationRate = 0.17
-xmax::Int64 = 220
+r = 19
+R0 = 1.4
+mutationRate = 0.14
+xmax::Int64 = 250
 Nh::Int64 = 1e7
 
-nonLocalJump = 30
-nonLocalMutProb = 5e-6
+nonLocalJump = 35
+nonLocalMutProb = 4e-6
 localKernel = Normal(0,1)
 mutationKernel = piecewiseKernel("piecewise", nonLocalMutProb, nonLocalJump, localKernel)
 
 (nx0, hx0, x) = getInitialCondition("steadyState", R0, r, mutationRate, mutationKernel, Nh, xmax)
 
-tmax = 400
+tmax = 600
 dt = 0.1
-dtSampling = 1
+dtSampling = 2
 
 # (Nt, xt, sigmat, uTt, absorbedState, idxAbsorbed, nxLoc, hxLoc) = simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
 

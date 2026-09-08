@@ -19,7 +19,7 @@ x = first(x):last(x)
 viDist = viralImmuneDistribution(x, nx0, hx0)
 getGrowthRate!(viDist, mParams)
 
-nMRCAsamples = 100
+nMRCAsamples = 1
 histogramEdges = 0:1:tmax*nMRCAsamples
 MRCAtimesHistogram = fit(Histogram, Float64[], histogramEdges)
 sampledWeights = Matrix{Int64}(undef, nMRCAsamples, length(histogramEdges) - 1)
@@ -29,8 +29,8 @@ for sample in 1:nMRCAsamples
 
     time = ((sample - 1)*simSet.tmax ):simSet.dt:(sample*simSet.tmax - simSet.dt)
     for t in time
-        simulationStep!(viDist, mParams, simSet, t) || (println("WARNING: virus extinct"); break)
-        # println("t = $t")
+        survivalFlag, _ = simulationStep!(viDist, mParams, simSet, t) 
+        survivalFlag || (println("WARNING: virus extinct"); break)
     end
 
     println("Finished simulation at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
