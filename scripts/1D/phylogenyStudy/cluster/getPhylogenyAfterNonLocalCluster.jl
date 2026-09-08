@@ -60,38 +60,58 @@ for run in 1:nMaxRuns
             end
         end
 
-        while simulationFailed
-            println("WARNING: virus extinct. Restarting simulation")
-            global viDist = viralImmuneDistribution(x, nx0, hx0)
-            getGrowthRate!(viDist, mParams)
-            
-            println("Starting sample $sample at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
-            simulationFailed = false
-            @time for t in time
-                extinctionFlag, nonLocalFlag = simulationStep!(viDist, mParams, simSet, t) 
+        # If there is a non-local event, sample after `time2sampleAfterNonLocalEvent`
+        nonLocalFlag && (push!(nonLocalDelayVector, time2sampleAfterNonLocalEvent); println("Non local event!"))
+
+    end
+
+    while simulationFailed
+        println("WARNING: virus extinct. Restarting simulation")
+        global viDist = viralImmuneDistribution(x, nx0, hx0)
+        getGrowthRate!(viDist, mParams)
         
-                extinctionFlag || (simulationFailed = true; break)
+        global nonLocalDelayVector = Float64[]
+        
+        println("Starting sample $sample at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
+        simulationFailed = false
 
-                # Update nonLocalDelayVector and sample if the first element is zero
-                if !isempty(nonLocalDelayVector)
-                    nonLocalDelayVector .-= dt
-                    
-                    if first(nonLocalDelayVector) <= 0
-                        @time newMRCAtimes = getMRCAtimes(viDist.viralPop, min(NVirus4Times, sum(viDist.nx)))
-                        filter!(x -> x < Inf, newMRCAtimes)
-                        newHist = fit(Histogram, newMRCAtimes, histogramEdges)
-                        push!(sampledWeights, newHist.weights)
+        @time for t in time
+            survivalFlag, nonLocalFlag = simulationStep!(viDist, mParams, simSet, t) 
+    
+            survivalFlag || (simulationFailed = true; break)
 
-                        global nSamplesDone += 1
+            # Update nonLocalDelayVector and sample if the first element is zero
+            if !isempty(nonLocalDelayVector)
+                nonLocalDelayVector .-= dt
+                
+                if first(nonLocalDelayVector) <= 0
+                    @time newMRCAtimes = getMRCAtimes(viDist.viralPop, min(NVirus4Times, sum(viDist.nx)))
+                    filter!(x -> x < Inf, newMRCAtimes)
+                    newHist = fit(Histogram, newMRCAtimes, histogramEdges)
+                    push!(sampledWeights, newHist.weights)
 
-                        popfirst!(nonLocalDelayVector)
-                    end
+                    global nSamplesDone += 1
+
+                    popfirst!(nonLocalDelayVector)
                 end
             end
 
         # If there is a non-local event, sample after `time2sampleAfterNonLocalEvent`
         nonLocalFlag && (push!(nonLocalDelayVector, time2sampleAfterNonLocalEvent); println("Non local event!"))
+        end
+         
     end
+    println("Finished simulation at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
+
+    if nSamplesDone > nMinSamples
+        println("Minimum desired number of samples achieved. Final result: &(nSamplesDone) samples > $(nMinSamples) minimum desired samples.")
+        break
+    end
+
+    translateDistributionBackLeft!(viDist, mParams)
+
+    println("Translated distrbution back to xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
+end
 
     println("Finished simulation at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
 
