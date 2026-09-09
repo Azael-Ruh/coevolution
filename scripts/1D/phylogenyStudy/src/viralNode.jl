@@ -150,48 +150,48 @@ end
 #                           Plotting tools
 # =======================================================================
 
-using BasicTreePlots, AbstractTrees, CairoMakie
+# using BasicTreePlots, AbstractTrees, CairoMakie
 
-import AbstractTrees: children
-import BasicTreePlots: distance, label
+# import AbstractTrees: children
+# import BasicTreePlots: distance, label
 
-function children(node::viralNode)::Vector{viralNode}
-    return node.children
-end
+# function children(node::viralNode)::Vector{viralNode}
+#     return node.children
+# end
 
-# Need to think about where to plot the split!!!
-function distance(node::viralNode)::Real
-    return node.birthTime - node.parent.birthTime
-end
+# # Need to think about where to plot the split!!!
+# function distance(node::viralNode)::Real
+#     return node.birthTime - node.parent.birthTime
+# end
 
-function label(node::viralNode)::String
-    return "x=$(round(Int, node.position))"
-end
+# function label(node::viralNode)::String
+#     return "x=$(round(Int, node.position))"
+# end
 
 
-"""
-    plotTreeFromNode(node::viralNode)
+# """
+#     plotTreeFromNode(node::viralNode)
 
-Produce a tree plot for the biggest tree `node` is in using BasicTreePlots.
+# Produce a tree plot for the biggest tree `node` is in using BasicTreePlots.
 
-# Examples
-```julia-repl
-julia>
-```
-"""
-function plotTreeFromNode(node::viralNode, depth::Real = -1)
+# # Examples
+# ```julia-repl
+# julia>
+# ```
+# """
+# function plotTreeFromNode(node::viralNode, depth::Real = -1)
     
-    while node.parent != nothing && depth != 0
-        node = node.parent
-        depth -= 1
-    end
+#     while node.parent != nothing && depth != 0
+#         node = node.parent
+#         depth -= 1
+#     end
 
-    fig = Figure()
-    ax = Axis(fig[1, 1])
-    hidedecorations!(ax)
-    hidespines!(ax)
-    treeplot!(node, tipfontsize = 14)
-    display(fig)
+#     fig = Figure()
+#     ax = Axis(fig[1, 1])
+#     hidedecorations!(ax)
+#     hidespines!(ax)
+#     treeplot!(node, tipfontsize = 14)
+#     display(fig)
 
-    return fig
-end
+#     return fig
+# end

@@ -29,7 +29,7 @@ histogramEdges = 0:1:tmax*nMaxRuns
 MRCAtimesHistogram = fit(Histogram, Float64[], histogramEdges)
 sampledWeights = Vector{Int64}[]
 
-time2sampleAfterNonLocalEvent = 85
+time2sampleAfterNonLocalEvent = 80
 nonLocalDelayVector = Float64[]
 
 nSamplesDone = 0
@@ -101,18 +101,6 @@ for run in 1:nMaxRuns
         end
          
     end
-    println("Finished simulation at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
-
-    if nSamplesDone > nMinSamples
-        println("Minimum desired number of samples achieved. Final result: &(nSamplesDone) samples > $(nMinSamples) minimum desired samples.")
-        break
-    end
-
-    translateDistributionBackLeft!(viDist, mParams)
-
-    println("Translated distrbution back to xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
-end
-
     println("Finished simulation at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
 
     if nSamplesDone > nMinSamples

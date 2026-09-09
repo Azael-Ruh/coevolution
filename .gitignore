@@ -5,4 +5,4 @@
 *.out
 *.err
 *.txt
-*.jld2
+simulations/1D/*

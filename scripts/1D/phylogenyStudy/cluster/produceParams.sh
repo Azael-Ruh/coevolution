@@ -3,13 +3,13 @@
 
 r=19
 R0=1.4
-muVect=(0.14 0.15)
-nonLocalMutProbVect=("0" "5e-6")
+muVect=(0.14)
+nonLocalMutProbVect=("5e-6")
 nonLocalJump=35
 localKernel="Normal(0,1)"
 Nh=10000000
 tmax=400
-xmax=250
+xmax=300
 runs=200
 
 printf "" > /home/zayas-orihuela/coevolution/scripts/1D/phylogenyStudy/cluster/params.txt
