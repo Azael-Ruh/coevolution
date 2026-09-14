@@ -1,0 +1,54 @@
+#!/bin/bash
+#SBATCH -p C-Infinite
+#SBATCH --output=slurm.%A_%a.out
+#SBATCH --error=slurm.%A_%a.err
+
+#SBATCH --array=0-99 # 100 jobs
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=2GB
+#SBATCH -t 0-96:00
+
+# ---- CONFIG ----
+SECONDS=0
+MUSIZE=1
+NONLOCPROBSIZE=1
+TAFTERNONLOCALSIZE=10
+RUNSIZE=200
+TOTAL_LINES=$(( MUSIZE * NONLOCPROBSIZE * RUNSIZE * TAFTERNONLOCALSIZE))
+NJOBS=100
+LINES_PER_JOB=$(( TOTAL_LINES / NJOBS))
+START=$(( SLURM_ARRAY_TASK_ID * LINES_PER_JOB ))
+END=$(( START + LINES_PER_JOB ))
+
+# JULIA ENV INFO:
+echo "HOST: $(hostname)"
+echo "JULIA: $(which julia)"
+julia --version
+echo "JULIA_PROJECT=$JULIA_PROJECT"
+
+julia -e '
+using Pkg
+println("active project: ", Base.active_project())
+println("DEPOT_PATH: ", DEPOT_PATH)
+println("LOAD_PATH: ", LOAD_PATH)
+Pkg.status()
+'
+
+# ---- RUN THE ASSIGNED LINES ----
+i=0
+while IFS= read -r line; do
+    if (( i >= START && i < END )); then
+        # Extract parameters from line
+        read r R0 mu localKernel Delta nonLocalProb Nh tmax xmax tAfterNonLocal run <<< "$line"
+
+        echo "Job $SLURM_ARRAY_TASK_ID running parameters: r=$r, R0=$R0, mu=$mu, localKernel=$localKernel, Delta=$Delta, nonLocalProb=$nonLocalProb, Nh=$Nh, tmax=$tmax, xmax=$xmax, tAfterNonLocal =$tAfterNonLocal, run=$run"
+
+        # Run the simulation
+        ~/.juliaup/bin/julia ~/coevolution/scripts/1D/phylogenyStudy/cluster/getPhylogenyAfterNonLocalCluster.jl \
+              "$r" "$R0" "$mu" "$localKernel" "$Delta" "$nonLocalProb" "$Nh" "$tmax" "$xmax" "$run"
+    fi
+    ((i++))
+done < /home/zayas-orihuela/coevolution/scripts/1D/phylogenyStudy/cluster/params.txt
+
+echo ${SECONDS}
