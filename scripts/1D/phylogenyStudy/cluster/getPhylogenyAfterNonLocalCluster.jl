@@ -29,7 +29,7 @@ histogramEdges = 0:1:tmax*nMaxRuns
 MRCAtimesHistogram = fit(Histogram, Float64[], histogramEdges)
 sampledWeights = Vector{Int64}[]
 
-time2sampleAfterNonLocalEvent = 80
+time2sampleAfterNonLocalEvent = parse(Int, ARGS[10])
 nonLocalDelayVector = Float64[]
 
 nSamplesDone = 0
@@ -113,7 +113,7 @@ for run in 1:nMaxRuns
     println("Translated distrbution back to xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
 end
 
-run = parse(Int, ARGS[10])
+run = parse(Int, ARGS[11])
 saveDir = expanduser("~/coevolution/simulations/phylogenyStudy/afterNonLocalEvent")
 saveFile = "sampledMRCAtimeWeights_r$(r)R0$(R0)mu$(mu)Delta$(nonLocalJump)nonLocalProb$(nonLocalMutProb)tmax$(tmax)tAfterNonLocal$(time2sampleAfterNonLocalEvent)nSamples$(nMinSamples)NVirus$(NVirus4Times)_$(run).jld2"
 jldsave(joinpath(saveDir, saveFile); sampledWeights)

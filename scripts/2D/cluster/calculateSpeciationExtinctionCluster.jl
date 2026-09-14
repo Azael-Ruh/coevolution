@@ -24,15 +24,15 @@ y = -150:150
 vi2D = viralImmuneDistribution2D(x, y)
 getInitialDistribution!(vi2D, mParams, sampDists)
 
-nRuns = parse(Int, ARGS[8])
+nCycles = parse(Int, ARGS[8])
 speciationTimes = Float64[]
 extinctionTimes = Float64[]
 nonLocalTimes = Float64[]
 
 println("Starting simulation!")
 
-for run in 1:nRuns 
-    println("Run $run of $nRuns")
+for cycle in 1:nCycles 
+    println("Cycle $cycle of $nCycles")
 
     time = dt:dt:tmax
     extinctionFlag = false
@@ -61,5 +61,5 @@ nExtinctionEvents = length(extinctionTimes)
 nNonLocalEvents = length(nonLocalTimes)
 
 saveDir = expanduser("~/coevolution/simulations/2D/speciationNExtinction")
-saveFile = "speciationExtinction_r$(r)R0$(R0)mu$(mu)tmax$(tmax)totalRuns$(totalRuns)$nonLocalProb$(nonLocalMutProb)Delta$(mutationKernel.nonLocalJump).jld2"
+saveFile = "speciationExtinction_r$(r)R0$(R0)mu$(mu)tmax$(tmax)nCycles$(nCycles)$nonLocalProb$(nonLocalMutProb)Delta$(mutationKernel.nonLocalJump).jld2"
 jldsave(joinpath(saveDir, saveFile); nSpeciationEvents, speciationTimes, nExtinctionEvents, extinctionTimes, nNonLocalEvents, nonLocalTimes)

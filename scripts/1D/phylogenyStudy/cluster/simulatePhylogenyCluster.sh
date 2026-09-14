@@ -7,7 +7,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2GB
-#SBATCH -t 0-48:00
+#SBATCH -t 0-96:00
 
 # ---- CONFIG ----
 SECONDS=0
