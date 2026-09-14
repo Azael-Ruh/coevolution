@@ -45,6 +45,7 @@ for idxDelta in eachindex(nonLocalMutProbVect)
     println("Maximum recorded time: $maxMRCAtime")
 
     weights = zeros(Integer, maxMRCAtime)
+    weigthVar = zeros(Integer, maxMRCAtime)
     for run in [collect(1:2); collect(4:runs)]
         saveFile = "sampledMRCAtimeWeights_r$(r)R0$(R0)mu$(mutationRate)Delta$(nonLocalJump)nonLocalProb$(nonLocalMutProbVect[idxDelta])tmax$(tmax)nSamples$(nMRCAsamples)NVirus$(NVirus4Times)_$(run).jld2"
         filePath = joinpath(saveDir, saveFile)
@@ -52,25 +53,31 @@ for idxDelta in eachindex(nonLocalMutProbVect)
             vars = load(filePath)
             sampledWeights = vars["sampledWeights"]
             totalWeigths = dropdims(sum(sampledWeights, dims = 1), dims = 1)
+            weigthVar += var(sampledWeights, dims = 1)[1:length(weights)]
             weights += totalWeigths[1:length(weights)]
         end
     end
+    weigthStd = sqrt.(weigthVar)
 
     finalSensitivity = 7
     finalEdges = push!(collect(0:finalSensitivity:maxMRCAtime-1), maxMRCAtime)
     finalHist = fit(Histogram, Float64[], finalEdges)
     finalHist.weights = [sum(weights[finalEdges[i] + 1:finalEdges[i+1]]) for i in 1:(length(finalEdges)-1)]
 
+    normalisation = sum(weights)
+    weigthStd ./= normalisation
+    finalWeightStd = [sum(weigthStd[finalEdges[i] + 1:finalEdges[i+1]]) for i in 1:(length(finalEdges)-1)]
+
     normalisedHist = normalize(finalHist)
 
     plotConfig()
     edges = normalisedHist.edges[1]
     weights = normalisedHist.weights
-    p0 = Plots.plot([edges[1]; edges; edges[end]], [0; weights; last(weights); 0], xlabel = raw"$T_2$", ylabel = raw"$\mathbb{P}(T_2)$", lw = 2, seriestype = :steppost)
+    p0 = Plots.plot([edges[1]; edges; edges[end]], [0; weights; last(weights); 0], ribbon = [0; finalWeightStd; last(finalWeightStd); 0], xlabel = raw"$T_2$", ylabel = raw"$\mathbb{P}(T_2)$", lw = 2, seriestype = :steppost)
 
-    savefig(p0, joinpath(figDir, "T2histogram_r$(r)R0$(R0)Delta$(nonLocalJump * (nonLocalMutProbVect[idxDelta] != 0))mu$(mutationRate)nSamples$(nMRCAsamples*runs)NVirus$(NVirus4Times).png"))
+    savefig(p0, joinpath(figDir, "T2histogram_r$(r)R0$(R0)Delta$(nonLocalJump * (nonLocalMutProbVect[idxDelta] != 0))mu$(mutationRate)nSamples$(nMRCAsamples*runs)NVirus$(NVirus4Times).svg"))
 
-    Plots.plot!(pTot, [edges[1]; edges; edges[end]], [0; weights; last(weights); 0], xlabel = raw"$T_2$", ylabel = raw"$\mathbb{P}(T_2)$", lw = 2, seriestype = :steppost, label = raw"$\Delta = " * "$(nonLocalJump * (nonLocalMutProbVect[idxDelta] != 0))" * raw"$", xlims = (0, min(1000, maxMRCAtime)))
+    Plots.plot!(pTot, [edges[1]; edges; edges[end]], [0; weights; last(weights); 0], ribbon = [0; finalWeightStd; last(finalWeightStd); 0], xlabel = raw"$T_2$", ylabel = raw"$\mathbb{P}(T_2)$", lw = 2, seriestype = :steppost, label = raw"$\Delta = " * "$(nonLocalJump * (nonLocalMutProbVect[idxDelta] != 0))" * raw"$", xlims = (0, min(1000, maxMRCAtime)))
 end
 
-savefig(pTot, joinpath(figDir, "T2histogram_r$(r)R0$(R0)mu$(mutationRate)nSamples$(nMRCAsamples*runs)NVirus$(NVirus4Times).png"))
+savefig(pTot, joinpath(figDir, "T2histogram_r$(r)R0$(R0)mu$(mutationRate)nSamples$(nMRCAsamples*runs)NVirus$(NVirus4Times).svg"))
