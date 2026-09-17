@@ -3,7 +3,7 @@
 #SBATCH --output=slurm.%A_%a.out
 #SBATCH --error=slurm.%A_%a.err
 
-#SBATCH --array=0-47        # 10 jobs
+#SBATCH --array=0-191        # 192 jobs
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2GB
@@ -13,8 +13,9 @@
 SECONDS=0
 MUSIZE=6
 DELTASIZE=8
-TOTAL_LINES=$(( MUSIZE * DELTASIZE))
-NJOBS=48
+RUNS=4
+TOTAL_LINES=$(( MUSIZE * DELTASIZE * RUNS))
+NJOBS=192
 LINES_PER_JOB=$(( TOTAL_LINES / NJOBS))
 START=$(( SLURM_ARRAY_TASK_ID * LINES_PER_JOB ))
 END=$(( START + LINES_PER_JOB ))
@@ -38,13 +39,13 @@ i=0
 while IFS= read -r line; do
     if (( i >= START && i < END )); then
         # Extract parameters from line
-        read r R0 mu nonLocalJump nonLocalMutProb Nh tmax nCycles <<< "$line"
+        read r R0 mu nonLocalJump nonLocalMutProb Nh tmax nCycles run <<< "$line"
 
-        echo "Job $SLURM_ARRAY_TASK_ID running parameters: r=$r, R0=$R0, mu=$mu, Delta=$nonLocalJump, nonLocalMutProb=$nonLocalMutProb Nh=$Nh, tmax=$tmax, nCycles=$nCycles"
+        echo "Job $SLURM_ARRAY_TASK_ID running parameters: r=$r, R0=$R0, mu=$mu, Delta=$nonLocalJump, nonLocalMutProb=$nonLocalMutProb Nh=$Nh, tmax=$tmax, nCycles=$nCycles, run=$run"
 
         # Run the simulation
         ~/.juliaup/bin/julia ~/coevolution/scripts/2D/cluster/calculateSpeciationExtinctionCluster.jl \
-              "$r" "$R0" "$Nh" "$mu" "$nonLocalMutProb" "$nonLocalJump" "$tmax" "$nCycles"
+              "$r" "$R0" "$Nh" "$mu" "$nonLocalMutProb" "$nonLocalJump" "$tmax" "$nCycles" "$run"
     fi
     ((i++))
 done < /home/zayas-orihuela/coevolution/scripts/2D/cluster/params.txt

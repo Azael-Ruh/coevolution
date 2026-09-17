@@ -8,7 +8,8 @@ nonLocalMutProb="2e-6"
 nonLocalJumpVect=(0 10 20 30 40 50 60 70)
 Nh=10000000
 tmax=300
-nCycles=100
+nCycles=30
+runs=4
 
 printf "" > /home/zayas-orihuela/coevolution/scripts/2D/cluster/params.txt
 
@@ -17,9 +18,12 @@ for nonLocalJump in "${nonLocalJumpVect[@]}"
 do 
     for mu in "${muVect[@]}"
     do
-        printf "%s\n" "$r $R0 $mu $nonLocalJump $nonLocalMutProb $Nh $tmax $nCycles" >> /home/zayas-orihuela/coevolution/scripts/2D/cluster/params.txt
+        for run in $(seq $runs)
+        do
+            printf "%s\n" "$r $R0 $mu $nonLocalJump $nonLocalMutProb $Nh $tmax $nCycles $run" >> /home/zayas-orihuela/coevolution/scripts/2D/cluster/params.txt
+        done
         ((i++))
     done
 done
 
-echo "produced $i different combinations"
+echo "produced $i different combinations $runs times each"

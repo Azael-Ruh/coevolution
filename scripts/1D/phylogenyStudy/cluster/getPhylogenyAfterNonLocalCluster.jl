@@ -104,7 +104,7 @@ for run in 1:nMaxRuns
     println("Finished simulation at xAv = $(sum(x .* viDist.nx) ./ sum(viDist.nx))")
 
     if nSamplesDone > nMinSamples
-        println("Minimum desired number of samples achieved. Final result: &(nSamplesDone) samples > $(nMinSamples) minimum desired samples.")
+        println("Minimum desired number of samples achieved. Final result: $(nSamplesDone) samples > $(nMinSamples) minimum desired samples.")
         break
     end
 

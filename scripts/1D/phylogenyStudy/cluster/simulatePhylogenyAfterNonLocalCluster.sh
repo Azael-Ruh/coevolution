@@ -46,7 +46,7 @@ while IFS= read -r line; do
 
         # Run the simulation
         ~/.juliaup/bin/julia ~/coevolution/scripts/1D/phylogenyStudy/cluster/getPhylogenyAfterNonLocalCluster.jl \
-              "$r" "$R0" "$mu" "$localKernel" "$Delta" "$nonLocalProb" "$Nh" "$tmax" "$xmax" "$run"
+              "$r" "$R0" "$mu" "$localKernel" "$Delta" "$nonLocalProb" "$Nh" "$tmax" "$xmax" "$tAfterNonLocal" "$run"
     fi
     ((i++))
 done < /home/zayas-orihuela/coevolution/scripts/1D/phylogenyStudy/cluster/params.txt

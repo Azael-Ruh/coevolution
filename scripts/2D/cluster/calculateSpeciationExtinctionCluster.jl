@@ -54,12 +54,17 @@ for cycle in 1:nCycles
     extinctionFlag ?
         getInitialDistribution!(vi2D, mParams, sampDists) :
         isolateBestSpeciesBack2Origin!(vi2D, mParams)
+    
+    global sampDists = sampledResults()
+    sampleDistributionsNSpecies!(vi2D, sampDists, mParams)
 end
 
 nSpeciationEvents = length(speciationTimes) #TODO: improve for speciation detection!
 nExtinctionEvents = length(extinctionTimes)
 nNonLocalEvents = length(nonLocalTimes)
 
+run = parse(Int, ARGS[9])
+
 saveDir = expanduser("~/coevolution/simulations/2D/speciationNExtinction")
-saveFile = "speciationExtinction_r$(r)R0$(R0)mu$(mu)tmax$(tmax)nCycles$(nCycles)$nonLocalProb$(nonLocalMutProb)Delta$(mutationKernel.nonLocalJump).jld2"
+saveFile = "speciationExtinction_r$(r)R0$(R0)mu$(mu)tmax$(tmax)nCycles$(nCycles)nonLocalProb$(nonLocalMutProb)Delta$(mutationKernel.nonLocalJump)_run$(run).jld2"
 jldsave(joinpath(saveDir, saveFile); nSpeciationEvents, speciationTimes, nExtinctionEvents, extinctionTimes, nNonLocalEvents, nonLocalTimes)

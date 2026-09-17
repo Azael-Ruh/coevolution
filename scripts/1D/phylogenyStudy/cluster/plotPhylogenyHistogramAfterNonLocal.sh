@@ -12,7 +12,7 @@ nonLocalJump="35"
 localKernel="Normal(0,1)"
 Nh=10000000
 tmax=400
-xmax=250
+xmax=300
 runs=200
 
 # ---- RUN THE CODE ----
