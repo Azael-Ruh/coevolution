@@ -11,7 +11,7 @@ end
 nonLocalMutProb = Meta.parse(ARGS[4])
 nonLocalJumpVect = let expr = Meta.parse(ARGS[5])
     @assert expr.head == :vect
-    Float64.(expr.args)
+    Int.(expr.args)
 end
 localMutationKernel = NextNeighbour()
 
@@ -34,7 +34,9 @@ for i in eachindex(mutationRateVect), j in eachindex(nonLocalJumpVect)
         saveFile = "speciationExtinction_r$(r)R0$(R0)mu$(mutationRateVect[i])tmax$(tmax)nCycles$(nCycles)nonLocalProb$(nonLocalMutProb)Delta$(nonLocalJumpVect[j])_run$(run).jld2"
         filePath = joinpath(saveDir, saveFile)
         
+            println("Loofing for file $(filePath)!")
         if isfile(filePath)
+            println("Found file!")
             vars = load(filePath)
             nSpeciationEvents[i,j] += vars["nSpeciationEvents"]
             nExtinctionEvents[i,j] += vars["nExtinctionEvents"]
