@@ -19,7 +19,7 @@ runs = parse(Int, ARGS[10])
 
 saveDir = expanduser("~/coevolution/simulations/phylogenyStudy")
 nMRCAsamples::Int = 10
-NVirus4Times::Int = 2500
+NVirus4Times::Int = 5000
 
 baseFolder = expanduser("~/coevolution/")
 figDir = baseFolder * "figures/genealogicStudies/"

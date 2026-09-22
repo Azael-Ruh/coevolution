@@ -18,8 +18,8 @@ dtSampling = 2
 simSet = simulationConfig(tmax, dt, dtSampling)
 sampDists = sampledResults()
 
-x = -150:150
-y = -150:150
+x = -150:250
+y = -250:250
 
 vi2D = viralImmuneDistribution2D(x, y)
 getInitialDistribution!(vi2D, mParams, sampDists)
@@ -47,13 +47,15 @@ for cycle in 1:nCycles
             println("t = $t")
             sampleDistributionsNSpecies!(vi2D, sampDists, mParams)
             hasSpeciationHappened(sampDists) && push!(speciationTimes, t)
-            hasExtinctionHappened(sampDists) && push!(extinctionTimes, t)
         end
     end
 
-    extinctionFlag ?
-        getInitialDistribution!(vi2D, mParams, sampDists) :
+    if extinctionFlag
+        push!(extinctionTimes, t)
+        getInitialDistribution!(vi2D, mParams, sampDists)
+    else
         isolateBestSpeciesBack2Origin!(vi2D, mParams)
+    end
     
     global sampDists = sampledResults()
     sampleDistributionsNSpecies!(vi2D, sampDists, mParams)

@@ -4,7 +4,7 @@
 r=19
 R0=1.4
 muVect=(0.14)
-nonLocalMutProbVect=("5e-6")
+nonLocalMutProbVect=("5e-6" "0")
 nonLocalJump=35
 localKernel="Normal(0,1)"
 Nh=10000000

@@ -3,7 +3,7 @@
 #SBATCH --output=slurm.%A_%a.out
 #SBATCH --error=slurm.%A_%a.err
 
-#SBATCH --array=0-191        # 192 jobs
+#SBATCH --array=0-95        # 96 jobs
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=2GB
@@ -13,9 +13,9 @@
 SECONDS=0
 MUSIZE=6
 DELTASIZE=8
-RUNS=4
+RUNS=2
 TOTAL_LINES=$(( MUSIZE * DELTASIZE * RUNS))
-NJOBS=192
+NJOBS=96
 LINES_PER_JOB=$(( TOTAL_LINES / NJOBS))
 START=$(( SLURM_ARRAY_TASK_ID * LINES_PER_JOB ))
 END=$(( START + LINES_PER_JOB ))

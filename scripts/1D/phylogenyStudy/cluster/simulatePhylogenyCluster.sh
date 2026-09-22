@@ -11,7 +11,7 @@
 
 # ---- CONFIG ----
 SECONDS=0
-MUSIZE=1
+MUSIZE=2
 NONLOCPROBSIZE=1
 RUNSIZE=200
 TOTAL_LINES=$(( MUSIZE * NONLOCPROBSIZE * RUNSIZE))
@@ -44,7 +44,7 @@ while IFS= read -r line; do
         echo "Job $SLURM_ARRAY_TASK_ID running parameters: r=$r, R0=$R0, mu=$mu, localKernel=$localKernel, Delta=$Delta, nonLocalProb=$nonLocalProb, Nh=$Nh, tmax=$tmax, xmax=$xmax, run=$run"
 
         # Run the simulation
-        ~/.juliaup/bin/julia ~/coevolution/scripts/1D/phylogenyStudy/cluster/getPhylogenyAfterNonLocalCluster.jl \
+        ~/.juliaup/bin/julia ~/coevolution/scripts/1D/phylogenyStudy/cluster/getPhylogenyNonLocalCluster.jl \
               "$r" "$R0" "$mu" "$localKernel" "$Delta" "$nonLocalProb" "$Nh" "$tmax" "$xmax" "$run"
     fi
     ((i++))
