@@ -36,7 +36,7 @@ for i in eachindex(mutationRateVect), j in eachindex(nonLocalJumpVect)
         saveFile = "speciationExtinction_r$(r)R0$(R0)mu$(mutationRateVect[i])tmax$(tmax)nCycles$(nCycles)nonLocalProb$(nonLocalMutProb)Delta$(nonLocalJumpVect[j])_run$(run).jld2"
         filePath = joinpath(saveDir, saveFile)
         
-            println("Loofing for file $(filePath)!")
+            println("Looking for file $(filePath)!")
         if isfile(filePath)
             println("Found file!")
             vars = load(filePath)
