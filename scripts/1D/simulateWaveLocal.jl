@@ -1,33 +1,33 @@
 include("../../code/simulate/coevolution1DSimulationTools.jl")
-using FFTW
+# using FFTW
 
-r = 19
-R0 = 1.4
+r = 10
+R0 = 1.2
 mutationRate = 0.14
-xmax::Int64 = 250
-Nh::Int64 = 1e7
+xmax::Int64 = 1000
+Nh::Int64 = 1e8
 
-nonLocalJump = 35
-nonLocalMutProb = 4e-6
-localKernel = Normal(0,1)
+nonLocalJump = 40
+nonLocalMutProb = 2e-7
+localKernel = Normal(0, 1)
 mutationKernel = piecewiseKernel("piecewise", nonLocalMutProb, nonLocalJump, localKernel)
 
 (nx0, hx0, x) = getInitialCondition("steadyState", R0, r, mutationRate, mutationKernel, Nh, xmax)
 
-tmax = 600
+tmax = 2000
 dt = 0.1
 dtSampling = 2
 
 # (Nt, xt, sigmat, uTt, absorbedState, idxAbsorbed, nxLoc, hxLoc) = simulateWaveMacro(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
 
 (nx, hx) = simulateWave(nx0, hx0, R0, r, Nh, mutationRate, mutationKernel, dt, tmax, dtSampling, x)
-Nt = vec(sum(nx, dims = 2))
+Nt = vec(sum(nx, dims=2))
 
-p = plotSimulationSummary(nx, hx, xmax, r, R0, dtSampling = dtSampling)
+p = plotSimulationSummary(nx, hx, xmax, r, R0, dtSampling=dtSampling)
 display(p)
 q = plotWaveShape(nx, hx, xmax, r, R0, Nh)
-g = animateSimulationLog(nx, hx, x, Nh)
-1
+g = animateSimulation(nx, hx, x, Nh)
+# g = animateSimulationLog(nx, hx, x, Nh)
 
 # autop = plot(autocor(Nt, 0:floor(Int,length(Nt)/2)), ylabel = raw"$\langle N(t)N(t+\tau)\rangle$", xlabel = raw"$\tau$", title = "Normalised autocorrelation for R0 = $R0, r = $r")
 # display(autop)

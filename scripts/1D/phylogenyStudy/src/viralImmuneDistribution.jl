@@ -7,7 +7,7 @@ struct modelParams
     s::Real
     Nh::Real
     mutationRate::Real
-    mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}, piecewiseKernel}
+    mutationKernel::Union{Distribution{Univariate,Continuous},Distribution{Univariate,Discrete},piecewiseKernel}
     D::Real
     Hkernel::Vector{<:Real}
     HkernelHalfLength::Int
@@ -28,7 +28,7 @@ function modelParams(r, R0, Nh, mu, mutationKernel)::modelParams
     D = mu * std(mutationKernel)^2 / 2
 
     H(x) = exp.(-abs.(x)/r)
-    r == 0 ? (Hkernel = [1]) : (Hkernel = H(-5*ceil(r):5*ceil(r)))
+    r == 0 ? (Hkernel = [1]) : (Hkernel = H((-5*ceil(r)):(5*ceil(r))))
     HkernelHalfLength::Int = floor(length(Hkernel)/2)
 
     return modelParams(r, R0, s, Nh, mu, mutationKernel, D, Hkernel, HkernelHalfLength)
@@ -51,11 +51,33 @@ Public constructor for the simulation configuration struct, with total simulatio
 julia>
 ```
 """
-function simulationConfig(tmax::Real, dt::Real = 0.1, dtSampling::Real = 1)::simulationConfig
+function simulationConfig(tmax::Real, dt::Real=0.1, dtSampling::Real=1)::simulationConfig
     idxSampling = round(Int, dtSampling/dt)
     return simulationConfig(tmax, dt, dtSampling, idxSampling)
 end
 
+mutable struct sampledResults
+    nxt::Vector{Vector{Integer}}
+    hxt::Vector{Vector{Integer}}
+    Refft::Vector{Vector{Float64}}
+end
+
+"""
+    sampledResults()::sampledResults
+
+Public constructor for the sampled simulation results struct, created with empty vectors in fields `nxt` and `hxt` that will hold the sampled viral and immune fields respectively.
+
+# Examples
+```julia-repl
+julia>
+```
+"""
+function sampledResults()::sampledResults
+    nxt = Vector{Integer}[]
+    hxt = Vector{Integer}[]
+    Refft = Vector{Float64}[]
+    return sampledResults(nxt, hxt, Refft)
+end
 
 mutable struct viralImmuneDistribution
     space::UnitRange{<:Integer}
@@ -90,8 +112,8 @@ julia>
 ```
 """
 function getGrowthRate!(viDist::viralImmuneDistribution, mParams::modelParams)::Vector{<:Real}
-    
-    c = conv(viDist.hx, mParams.Hkernel)[mParams.HkernelHalfLength + 1: end - mParams.HkernelHalfLength]
+
+    c = conv(viDist.hx, mParams.Hkernel)[(mParams.HkernelHalfLength+1):(end-mParams.HkernelHalfLength)]
     Reff = mParams.R0 .* exp.(-c ./ mParams.Nh)
     return viDist.Reff = Reff
 end
@@ -107,8 +129,8 @@ julia>
 ```
 """
 function getGrowthRateUpdate!(viDist::viralImmuneDistribution, mParams::modelParams, hxGrowth::Vector{<:Integer})::Vector{<:Real}
-    
-    c = conv(hxGrowth, mParams.Hkernel)[mParams.HkernelHalfLength + 1: end - mParams.HkernelHalfLength]
+
+    c = conv(hxGrowth, mParams.Hkernel)[(mParams.HkernelHalfLength+1):(end-mParams.HkernelHalfLength)]
     return viDist.Reff = viDist.Reff .* exp.(-c ./ mParams.Nh)
 end
 
@@ -138,13 +160,13 @@ Reproduces the viral distribution in `viralImmuneDistribution` with the births g
 julia>
 ```
 """
-function reproduceViralDistribution!(viDist::viralImmuneDistribution, nxGrowth::Vector{<:Integer}, t::Real = 0)
+function reproduceViralDistribution!(viDist::viralImmuneDistribution, nxGrowth::Vector{<:Integer}, t::Real=0)
 
     viDist.nx += nxGrowth
 
     idxGrowth = findall(x -> x > 0, nxGrowth)
     for idx in idxGrowth
-        reproduceNVirus!(viDist.viralPop, idx, nxGrowth[idx], t)
+        reproduceNVirus!(viDist.viralPop, idx, nxGrowth[idx], t, viDist.Reff[idx] - 1)
     end
 end
 
@@ -158,7 +180,7 @@ Performs a reproduction simulation step in the viral distribution `viDist`, foll
 julia>
 ```
 """
-function reproductionStep!(viDist::viralImmuneDistribution, simSet::simulationConfig, t::Real = 0)::Vector{<:Integer}
+function reproductionStep!(viDist::viralImmuneDistribution, simSet::simulationConfig, t::Real=0)::Vector{<:Integer}
 
     nxGrowth = rand.(Poisson.(viDist.Reff .* viDist.nx .* simSet.dt))
     nxGrowth = clamp.(nxGrowth, zero(nxGrowth), viDist.nx)
@@ -177,7 +199,7 @@ Mutates the viral distribution in `viDist` with the mutations given by `nxMutate
 julia>
 ```
 """
-function mutateViralDistribution!(viDist::viralImmuneDistribution, mParams::modelParams, nxMutated::Vector{<:Integer}, t::Real = 0)::Bool
+function mutateViralDistribution!(viDist::viralImmuneDistribution, mParams::modelParams, nxMutated::Vector{<:Integer}, t::Real=0)::Bool
 
     nonLocalFlag = false
     viralJumps = zero(nxMutated)
@@ -203,7 +225,7 @@ Mutates `N` virus from position `idx` to positions sampled from `mParams.mutatio
 julia>
 ```
 """
-function mutateNVirusAt!(viDist::viralImmuneDistribution, mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}, piecewiseKernel}, N::Integer, idx::Integer, t::Real = 0)::Tuple{Vector{<:Integer}, Bool}
+function mutateNVirusAt!(viDist::viralImmuneDistribution, mutationKernel::Union{Distribution{Univariate,Continuous},Distribution{Univariate,Discrete},piecewiseKernel}, N::Integer, idx::Integer, t::Real=0)::Tuple{Vector{<:Integer},Bool}
 
     numVirus = viDist.nx[idx]
 
@@ -217,7 +239,7 @@ function mutateNVirusAt!(viDist::viralImmuneDistribution, mutationKernel::Union{
     clamp!(newIndices, 1, length(viDist.space))
 
     for newIdx in newIndices
-        mutateVirus!(viDist.viralPop, idx, newIdx, t)
+        mutateVirus!(viDist.viralPop, idx, newIdx, t, viDist.Reff[newIdx] - 1)
     end
 
     mutJumps = zero(viDist.nx)
@@ -236,7 +258,7 @@ Returns `N` displacements sampled from distibution `mutationKernel`.
 julia>
 ```
 """
-function getMutationDisplacements(mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}}, N::Integer)::Tuple{Vector{<:Real}, Bool}
+function getMutationDisplacements(mutationKernel::Union{Distribution{Univariate,Continuous},Distribution{Univariate,Discrete}}, N::Integer)::Tuple{Vector{<:Real},Bool}
     return Distributions.rand!(mutationKernel, zeros(N)), false
 end
 
@@ -250,7 +272,7 @@ Returns `N` displacements sampled from the picewise distribution `mutationKernel
 julia>
 ```
 """
-function getMutationDisplacements(mutationKernel::piecewiseKernel, N::Integer)::Tuple{Vector{<:Real}, Bool}
+function getMutationDisplacements(mutationKernel::piecewiseKernel, N::Integer)::Tuple{Vector{<:Real},Bool}
     nNonLocal = rand(Binomial(N, mutationKernel.nonLocalMutProb))
     return [Distributions.rand!(localKernel, zeros(N - nNonLocal)); mutationKernel.nonLocalJump .* ones(nNonLocal)], nNonLocal > 0
 end
@@ -265,11 +287,11 @@ Performs a mutation simulation step in the viral distribution `viDist`, with hom
 julia>
 ```
 """
-function mutationStep!(viDist::viralImmuneDistribution, mParams::modelParams,simSet::simulationConfig, t::Real = 0)::Tuple{Vector{<:Integer}, Bool}
+function mutationStep!(viDist::viralImmuneDistribution, mParams::modelParams, simSet::simulationConfig, t::Real=0)::Tuple{Vector{<:Integer},Bool}
 
     nxMutated = rand.(Poisson.(mParams.mutationRate .* viDist.nx .* simSet.dt))
     nxMutated = clamp.(nxMutated, zero(nxMutated), viDist.nx)
-    
+
     nonLocalFlag = mutateViralDistribution!(viDist, mParams, nxMutated, t)
     return nxMutated, nonLocalFlag
 end
@@ -323,7 +345,7 @@ Performs a simulation step in the viral distribution `viDist`, with parameters `
 julia>
 ```
 """
-function simulationStep!(viDist::viralImmuneDistribution, mParams::modelParams, simSet::simulationConfig, t::Real = 0)::Tuple{Bool, Bool}
+function simulationStep!(viDist::viralImmuneDistribution, mParams::modelParams, simSet::simulationConfig, t::Real=0)::Tuple{Bool,Bool}
 
     reproductionStep!(viDist, simSet, t)
     _, nonLocalFlag = mutationStep!(viDist, mParams, simSet, t)
@@ -344,7 +366,7 @@ julia>
 ```
 """
 function translateDistributionBackLeft!(viDist::viralImmuneDistribution, mParams::modelParams)
-    
+
     idxWave = findall(viDist.nx .> 0)
     firstIdx = mParams.HkernelHalfLength
     newIdx = idxWave .+ firstIdx .- first(idxWave)
@@ -353,7 +375,7 @@ function translateDistributionBackLeft!(viDist::viralImmuneDistribution, mParams
     newNx[newIdx] = viDist.nx[idxWave]
 
     newHx = zero(viDist.hx)
-    newHx[1:last(newIdx)] = viDist.hx[last(idxWave) - last(newIdx) + 1 : last(idxWave)]
+    newHx[1:last(newIdx)] = viDist.hx[(last(idxWave)-last(newIdx)+1):last(idxWave)]
 
     newViralNodes = [Vector{viralNode}(undef, 0) for i in eachindex(newNx)]
     newViralNodes[newIdx] = viDist.viralPop.viralNodes[idxWave]
@@ -363,4 +385,55 @@ function translateDistributionBackLeft!(viDist::viralImmuneDistribution, mParams
     viDist.viralPop.viralNodes = newViralNodes
 
     getGrowthRate!(viDist, mParams)
+end
+
+function sampleNvirus!(viDist::viralImmuneDistribution, N::Int)
+    numVirus = sum(viDist.nx)
+
+    N > 0 || throw(ArgumentError("The number of viruses to sample must be positive"))
+    N > numVirus && throw(ArgumentError("The number of viruses to sample ($N) cannot exceed the number of viruses ($numVirus) in the population"))
+
+    idxs2sample = sample(1:numVirus, N, replace=false)
+    allNodes = vcat(viDist.viralPop.viralNodes...)
+    sampleNode!.([allNodes[randIdx] for randIdx in idxs2sample])
+end
+
+"""
+    isTime2Sample(t::Real, simSet::simulationConfig)::Bool
+
+Returns true if the time `t` is a multiple of simSet.dtSampling (and thus time to save a sample of the distributions).
+"""
+function isTime2Sample(t::Real, simSet::simulationConfig)::Bool
+    return (round(Int, t / simSet.dt) % simSet.idxSampling) == 0
+end
+
+"""
+    sampleDistributions(viDist::viralImmuneDistribution, sampDist::sampledResults)
+
+Samples the viral and immune distribution in `viDist` by pushing them to the corresponding vectors in `sampDist`.
+"""
+function sampleDistributions!(viDist::viralImmuneDistribution, sampDist::sampledResults)
+    push!(sampDist.nxt, viDist.nx)
+    push!(sampDist.hxt, viDist.hx)
+    push!(sampDist.Refft, viDist.Reff)
+end
+
+function plotAnimation(sampDist::sampledResults, x::Union{UnitRange,Nothing}=nothing)
+
+    isempty(sampDist.nxt) && throw(ArgumentError("The given sampled distributions are empty"))
+
+    isnothing(x) && (x = 1:length(first(sampDist.nxt)))
+
+    maxN = maximum(hcat(sampDist.nxt...))
+    maxH = maximum(hcat(sampDist.hxt...))
+    NscalingFactor = maxH/maxN
+
+    animation = @animate for i in 1:length(sampDist.nxt)
+        p = Plots.plot(x, replace(sampDist.hxt[i], 0 => NaN), ylabel=raw"$h(x,y)$", xlabel=raw"$x$", c=:steelblue, ylims=(0, maxH))
+        Plots.plot!(p, x, replace(sampDist.nxt[i], 0 => NaN) .* NscalingFactor, ylabel=raw"$n(x,y)$", c=:coral)
+    end
+
+    g = gif(animation)
+    display(g)
+    return g
 end

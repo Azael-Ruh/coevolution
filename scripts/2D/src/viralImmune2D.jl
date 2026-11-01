@@ -1,5 +1,5 @@
 using StatsBase, Distributions, DSP, LinearAlgebra, NLsolve, SpecialFunctions, Plots, Random
-import StatsBase: std, params
+import StatsBase: std, params, mean
 import Base: broadcastable, length
 
 include("./speciationTools.jl")
@@ -11,7 +11,7 @@ include("./speciationTools.jl")
 struct piecewiseKernel2D
     nonLocalMutProb::Real
     nonLocalJump::Int
-    localKernel::Union{Distribution{Univariate, Continuous}, Distribution{Multivariate, Continuous}, Distribution{Univariate, Discrete}, Distribution{Multivariate, Discrete}}
+    localKernel::Union{Distribution{Univariate,Continuous},Distribution{Multivariate,Continuous},Distribution{Univariate,Discrete},Distribution{Multivariate,Discrete}}
 end
 
 function broadcastable(mutKern::piecewiseKernel2D)
@@ -32,7 +32,7 @@ struct modelParams
     s::Real
     Nh::Real
     mutationRate::Real
-    mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}, Distribution{Multivariate, Discrete}, Distribution{Multivariate, Continuous}, piecewiseKernel2D}
+    mutationKernel::Union{Distribution{Univariate,Continuous},Distribution{Univariate,Discrete},Distribution{Multivariate,Discrete},Distribution{Multivariate,Continuous},piecewiseKernel2D}
     D::Real
     Hkernel::Matrix{<:Real}
     HkernelHalfLength::Int
@@ -48,14 +48,14 @@ Public constructor for the model parameters struct, with cross-reactivity radius
 julia>
 ```
 """
-function modelParams(r, R0, Nh, mu, mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}, piecewiseKernel2D})::modelParams
+function modelParams(r, R0, Nh, mu, mutationKernel::Union{Distribution{Univariate,Continuous},Distribution{Univariate,Discrete},piecewiseKernel2D})::modelParams
     s = (r > 0 ? log(R0)/r : 2log(R0))
     D = mu * std(mutationKernel)[1]^2 / 2
 
     H(x) = exp.(-abs.(x)/r)
-    r == 0 ? (Hkernel = ones(1,1)) : begin
-        HkernelSpace = -5*ceil(r):5*ceil(r)
-        Hkernel = H(sqrt.(HkernelSpace.^2 .+ HkernelSpace'.^2))
+    r == 0 ? (Hkernel = ones(1, 1)) : begin
+        HkernelSpace = (-5*ceil(r)):(5*ceil(r))
+        Hkernel = H(sqrt.(HkernelSpace .^ 2 .+ HkernelSpace' .^ 2))
     end
     HkernelHalfLength::Int = floor(size(Hkernel)[1]/2)
 
@@ -73,14 +73,14 @@ Public constructor for the model parameters struct, with cross-reactivity radius
 julia>
 ```
 """
-function modelParams(r, R0, Nh, mu, mutationKernel::Union{Distribution{Multivariate, Continuous}, Distribution{Multivariate, Discrete}})::modelParams
+function modelParams(r, R0, Nh, mu, mutationKernel::Union{Distribution{Multivariate,Continuous},Distribution{Multivariate,Discrete}})::modelParams
     s = (r > 0 ? log(R0)/r : 2log(R0))
     D = mu * std(mutationKernel)[1]^2 / 2
 
     H(x) = exp.(-abs.(x)/r)
-    r == 0 ? (Hkernel = ones(1,1)) : begin
-        HkernelSpace = -5*ceil(r):5*ceil(r)
-        Hkernel = H(sqrt.(HkernelSpace.^2 .+ HkernelSpace'.^2))
+    r == 0 ? (Hkernel = ones(1, 1)) : begin
+        HkernelSpace = (-5*ceil(r)):(5*ceil(r))
+        Hkernel = H(sqrt.(HkernelSpace .^ 2 .+ HkernelSpace' .^ 2))
     end
     HkernelHalfLength::Int = floor(size(Hkernel)[1]/2)
 
@@ -104,7 +104,7 @@ Public constructor for the simulation configuration struct, with total simulatio
 julia>
 ```
 """
-function simulationConfig(tmax::Real, dt::Real = 0.1, dtSampling::Real = 1)::simulationConfig
+function simulationConfig(tmax::Real, dt::Real=0.1, dtSampling::Real=1)::simulationConfig
     idxSampling = round(Int, dtSampling/dt)
     return simulationConfig(tmax, dt, dtSampling, idxSampling)
 end
@@ -112,6 +112,7 @@ end
 mutable struct sampledResults
     nxt::Vector{Matrix{Integer}}
     hxt::Vector{Matrix{Integer}}
+    Refft::Vector{Matrix{Float64}}
     speciest::Vector{Vector{viralSpecies}}
 end
 
@@ -128,8 +129,9 @@ julia>
 function sampledResults()::sampledResults
     nxt = Matrix{Integer}[]
     hxt = Matrix{Integer}[]
+    Refft = Matrix{Float64}[]
     speciest = Vector{viralSpecies}[]
-    return sampledResults(nxt, hxt, speciest)
+    return sampledResults(nxt, hxt, Refft, speciest)
 end
 
 mutable struct viralImmuneDistribution2D
@@ -197,8 +199,8 @@ julia>
 ```
 """
 function getGrowthRate!(vi2D::viralImmuneDistribution2D, mParams::modelParams)::Matrix{<:Real}
-    
-    c = conv(vi2D.hx, mParams.Hkernel)[mParams.HkernelHalfLength + 1: end - mParams.HkernelHalfLength, mParams.HkernelHalfLength + 1: end - mParams.HkernelHalfLength]
+
+    c = conv(vi2D.hx, mParams.Hkernel)[(mParams.HkernelHalfLength+1):(end-mParams.HkernelHalfLength), (mParams.HkernelHalfLength+1):(end-mParams.HkernelHalfLength)]
     Reff = mParams.R0 .* exp.(-c ./ mParams.Nh)
     return vi2D.Reff = Reff
 end
@@ -214,9 +216,30 @@ julia>
 ```
 """
 function getGrowthRateUpdate!(vi2D::viralImmuneDistribution2D, mParams::modelParams, hxGrowth::Matrix{<:Integer})::Matrix{<:Real}
-    
-    c = conv(hxGrowth, mParams.Hkernel)[mParams.HkernelHalfLength + 1: end - mParams.HkernelHalfLength, mParams.HkernelHalfLength + 1: end - mParams.HkernelHalfLength]
-    return vi2D.Reff = vi2D.Reff .* exp.(-c ./ mParams.Nh)
+    nNonZeros = sum(hxGrowth .> 0)
+    if nNonZeros < 250
+        c = idealConv(hxGrowth, mParams.Hkernel)[(mParams.HkernelHalfLength+1):(end-mParams.HkernelHalfLength), (mParams.HkernelHalfLength+1):(end-mParams.HkernelHalfLength)]
+    else
+        c = conv(hxGrowth, mParams.Hkernel)[(mParams.HkernelHalfLength+1):(end-mParams.HkernelHalfLength), (mParams.HkernelHalfLength+1):(end-mParams.HkernelHalfLength)]
+    end
+    vi2D.Reff .*= exp.(-c ./ mParams.Nh)
+end
+
+"""
+    idealConv(N, H)
+
+Calculates a direct convolution optimized for a matrix `N` with mostly zeros (not necessarily sparse) with a kernel `H` asumed mostly .> 0. 
+"""
+function idealConv(N, H)
+    out = zeros(size(N) .+ size(H) .- (1, 1))
+    sizeH = size(H)
+    for i in axes(N, 1), j in axes(N, 2)
+        @inbounds c = N[i, j]
+        if c != 0
+            @views out[i:(i+sizeH[1]-1), j:(j+sizeH[2]-1)] .+= c .* H
+        end
+    end
+    return out
 end
 
 """
@@ -246,8 +269,8 @@ julia>
 ```
 """
 function reproductionStep!(vi2D::viralImmuneDistribution2D, simSet::simulationConfig)::Matrix{<:Integer}
-
-    nxGrowth = rand.(Poisson.(vi2D.Reff .* vi2D.nx .* simSet.dt))
+    nxGrowth = zero(vi2D.nx)
+    @views nxGrowth[vi2D.nx .> 0] .= rand.(Poisson.(vi2D.Reff[vi2D.nx .> 0] .* vi2D.nx[vi2D.nx .> 0] .* simSet.dt))
     nxGrowth = clamp.(nxGrowth, zero(nxGrowth), vi2D.nx)
     vi2D.nx += nxGrowth
     return nxGrowth
@@ -264,9 +287,9 @@ julia>
 ```
 """
 function deathStep!(vi2D::viralImmuneDistribution2D, simSet::simulationConfig)::Matrix{<:Integer}
-
-    nxDeath = rand.(Poisson.(vi2D.nx .* simSet.dt))
-    nxDeath = clamp.(nxDeath, zero(nxDeath), vi2D.nx)
+    nxDeath = zero(vi2D.nx)
+    @views nxDeath[vi2D.nx .> 0] .= rand.(Poisson.(vi2D.nx[vi2D.nx .> 0] .* simSet.dt))
+    nxDeath = min.(nxDeath, vi2D.nx)
     vi2D.nx -= nxDeath
     return nxDeath
 end
@@ -281,10 +304,11 @@ Performs a mutation simulation step in the viral distribution `vi2D`, with homog
 julia>
 ```
 """
-function mutationStep!(vi2D::viralImmuneDistribution2D, mParams::modelParams,simSet::simulationConfig)::Bool
+function mutationStep!(vi2D::viralImmuneDistribution2D, mParams::modelParams, simSet::simulationConfig)::Bool
 
-    nxMutated = rand.(Poisson.(mParams.mutationRate .* vi2D.nx .* simSet.dt))
-    nxMutated = clamp.(nxMutated, zero(nxMutated), vi2D.nx)
+    nxMutated = zero(vi2D.nx)
+    @views nxMutated[vi2D.nx .> 0] = rand.(Poisson.((mParams.mutationRate .* vi2D.nx .* simSet.dt)[vi2D.nx .> 0]))
+    nxMutated = min.(nxMutated, vi2D.nx)
     nonLocalFlag = mutateViralDistribution!(vi2D, mParams, nxMutated)
     return nonLocalFlag
 end
@@ -306,26 +330,25 @@ function mutateViralDistribution!(vi2D::viralImmuneDistribution2D, mParams::mode
 
     idxGrowth = findall(x -> x > 0, nxMutated)
     for idx in idxGrowth
-        jump, flag = getNJumpsAt(vi2D, mParams.mutationKernel, nxMutated[idx], idx)
-        viralJumps += jump
+        flag = getNJumpsAt!(vi2D, mParams.mutationKernel, nxMutated[idx], idx, viralJumps)
         nonLocalFlag |= flag
     end
 
-    vi2D.nx += viralJumps - nxMutated
+    vi2D.nx .+= viralJumps .- nxMutated
     return nonLocalFlag
 end
 
 """
-   getNJumpsAt(vi2D::viralImmuneDistribution2D, mParams::modelParams, N::Integer, idx::CartesianIndex)::Tuple{Matrix{<:Integer}, Bool}
+   getNJumpsAt!(vi2D::viralImmuneDistribution2D, mParams::modelParams, N::Integer, idx::CartesianIndex, viralJumps::Matrix{<:Integer})::Bool
 
-Mutates `N` virus from position `idx` to positions sampled from `mParams.mutationKernel` in `vi2D`, returning a matrix with the mutated viral density. If a non-local jump is found, it sets nonLocalJumpFlag to true CAUTION: does not update `vi2D.nx`
+Mutates `N` virus from position `idx` to positions sampled from `mParams.mutationKernel` in `vi2D`, adding them to viralJumps. If a non-local jump is found, it sets nonLocalJumpFlag to true CAUTION: does not update `vi2D.nx`
 
 # Examples
 ```julia-repl
 julia>
 ```
 """
-function getNJumpsAt(vi2D::viralImmuneDistribution2D, mutationKernel::Union{Distribution{Multivariate, Discrete}, Distribution{Multivariate, Continuous}, Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}, piecewiseKernel2D}, N::Integer, idx::CartesianIndex)::Tuple{Matrix{<:Integer}, Bool}
+function getNJumpsAt!(vi2D::viralImmuneDistribution2D, mutationKernel::Union{Distribution{Multivariate,Discrete},Distribution{Multivariate,Continuous},Distribution{Univariate,Continuous},Distribution{Univariate,Discrete},piecewiseKernel2D}, N::Integer, idx::CartesianIndex, viralJumps::Matrix{<:Integer})::Bool
 
     numVirus = vi2D.nx[idx]
 
@@ -337,10 +360,9 @@ function getNJumpsAt(vi2D::viralImmuneDistribution2D, mutationKernel::Union{Dist
     mutDisplacements, nonLocalFlag = getMutationDisplacements2D(mutationKernel, N)
     newIndices = filter(disp -> checkbounds(Bool, vi2D.nx, disp), mutDisplacements .+ idx)
 
-    mutJumps = zero(vi2D.nx)
-    [mutJumps[idx] += 1 for idx in newIndices]
+    [viralJumps[idx] += 1 for idx in newIndices]
 
-    return mutJumps, nonLocalFlag
+    return nonLocalFlag
 end
 
 """
@@ -353,14 +375,14 @@ Returns `N` displacements sampled from piecewise distibution `mutationKernel`. I
 julia>
 ```
 """
-function getMutationDisplacements2D(mutationKernel::piecewiseKernel2D, N::Integer)::Tuple{Vector{CartesianIndex{2}}, Bool}
+function getMutationDisplacements2D(mutationKernel::piecewiseKernel2D, N::Integer)::Tuple{Vector{CartesianIndex{2}},Bool}
     NnonLocal = sum(rand(N) .<= mutationKernel.nonLocalMutProb)
-    
+
     localIdxs, _ = getMutationDisplacements2D(mutationKernel.localKernel, N - NnonLocal)
-    
+
     nonLocalJumpAngles = 2pi .* rand(NnonLocal)
     nonLocalIdxs = [CartesianIndex(round.(Int, mutationKernel.nonLocalJump .* [cos(theta), sin(theta)])...) for theta in nonLocalJumpAngles]
-    
+
     return vcat(localIdxs, nonLocalIdxs), NnonLocal > 0
 end
 
@@ -374,7 +396,7 @@ Returns `N` displacements sampled from distibution `mutationKernel`.
 julia>
 ```
 """
-function getMutationDisplacements2D(mutationKernel::Union{Distribution{Univariate, Continuous}, Distribution{Univariate, Discrete}}, N::Integer)::Tuple{Vector{CartesianIndex{2}}, Bool}
+function getMutationDisplacements2D(mutationKernel::Union{Distribution{Univariate,Continuous},Distribution{Univariate,Discrete}}, N::Integer)::Tuple{Vector{CartesianIndex{2}},Bool}
     return [CartesianIndex(round.(Int, rand(mutationKernel, 2))...) for i in 1:N], false
 end
 
@@ -388,11 +410,11 @@ Returns `N` displacements sampled from multivariate distibution `mutationKernel`
 julia>
 ```
 """
-function getMutationDisplacements2D(mutationKernel::Union{Distribution{Multivariate, Continuous}, Distribution{Multivariate, Discrete}}, N::Integer)::Tuple{Vector{CartesianIndex{2}}, Bool}
+function getMutationDisplacements2D(mutationKernel::Union{Distribution{Multivariate,Continuous},Distribution{Multivariate,Discrete}}, N::Integer)::Tuple{Vector{CartesianIndex{2}},Bool}
     return [CartesianIndex(round.(Int, rand(mutationKernel))...) for i in 1:N], false
 end
 
-function getIdxLimits(distribution::Matrix{<:Real})::Tuple{CartesianIndex, CartesianIndex}
+function getIdxLimits(distribution::Matrix{<:Real})::Tuple{CartesianIndex,CartesianIndex}
     idxWave = findall(distribution .> 0)
     return minimum(idxWave), maximum(idxWave)
 end
@@ -406,7 +428,7 @@ function getCentralIdx(minIdx::CartesianIndex, maxIdx::CartesianIndex)::Cartesia
 end
 
 function getSteadyStateEstimate(mParams::modelParams)
-   
+
     N, sigma, v = getSteadyStateLinearFitness(mParams)
     # TODO: think about the FKPP limit :(
 
@@ -454,7 +476,7 @@ Performs a simulation step in the viral distribution `vi2D`, with parameters `mP
 julia>
 ```
 """
-function simulationStep!(vi2D::viralImmuneDistribution2D, mParams::modelParams, simSet::simulationConfig)::Tuple{Bool, Bool}
+function simulationStep!(vi2D::viralImmuneDistribution2D, mParams::modelParams, simSet::simulationConfig)::Tuple{Bool,Bool}
 
     reproductionStep!(vi2D, simSet)
     nonLocalFlag = mutationStep!(vi2D, mParams, simSet)
@@ -475,7 +497,7 @@ julia>
 ```
 """
 function translateDistributionBack2Origin!(vi2D::viralImmuneDistribution2D, mParams::modelParams)
-    
+
     # Get the space where viruses are alive, expand it by `mParams.HkernelHalfLength` in all directions to also get the immune system that interacts with it (clamping it so it is in bounds) and creating the translated version around the origin. 
     minIdx, maxIdx = getIdxLimits(vi2D.nx)
     immuneLengthIdx = CartesianIndex(ceil(Int, 5*mParams.r), ceil(Int, 5*mParams.r))
@@ -483,7 +505,7 @@ function translateDistributionBack2Origin!(vi2D::viralImmuneDistribution2D, mPar
     maxIdxImmunity = clampIdx(maxIdx + immuneLengthIdx, vi2D.lowerIdxLimit, vi2D.higherIdxLimit)
     newMinIdx = clampIdx(minIdxImmunity - getCentralIdx(minIdx, maxIdx) + vi2D.origin, vi2D.lowerIdxLimit, vi2D.higherIdxLimit)
     newMaxIdx = clampIdx(maxIdxImmunity - getCentralIdx(minIdx, maxIdx) + vi2D.origin, vi2D.lowerIdxLimit, vi2D.higherIdxLimit)
-    newIndices = newMinIdx:newMaxIdx 
+    newIndices = newMinIdx:newMaxIdx
     waveIndices = newIndices .+ getCentralIdx(minIdx, maxIdx) .- vi2D.origin
 
     checkbounds(vi2D.nx, newIndices)
@@ -500,20 +522,20 @@ function translateDistributionBack2Origin!(vi2D::viralImmuneDistribution2D, mPar
     getGrowthRate!(vi2D, mParams)
 end
 
-function getInitialDistribution!( vi2D::viralImmuneDistribution2D, mParams::modelParams, sampDist::sampledResults)
-        
+function getInitialDistribution!(vi2D::viralImmuneDistribution2D, mParams::modelParams, sampDist::sampledResults)
+
     transverseWidthFactor = sqrt(1.66)
 
     N0, sigma0, v0 = getSteadyStateEstimate(mParams)
     H0 = mParams.Nh * mParams.s
-    
+
     gaussianCond(x, sig) = exp(-x^2/(2*sig^2))/sqrt(2pi*sig^2)
 
     x = vi2D.x
     y = vi2D.y
 
     nx0 = round.(Int, N0 .* gaussianCond.(x, sigma0) .* gaussianCond.(y, transverseWidthFactor * sigma0)')
-    hx0 = round.(Int, H0 .* (1 .+ erf.( .-x ./ sqrt(2*sigma0^2))) .* (x .> -5mParams.r) ./ 2 .* (gaussianCond.(y, transverseWidthFactor * sigma0))')
+    hx0 = round.(Int, H0 .* (1 .+ erf.(.-x ./ sqrt(2*sigma0^2))) .* (x .> -5mParams.r) ./ 2 .* (gaussianCond.(y, transverseWidthFactor * sigma0))')
 
     vi2D.nx = nx0
     vi2D.hx = hx0
@@ -530,7 +552,7 @@ end
 Returns true if the time `t` is a multiple of simSet.dtSampling (and thus time to save a sample of the distributions).
 """
 function isTime2Sample(t::Real, simSet::simulationConfig)::Bool
-    return (round(Int, t / simSet.dt) % simSet.idxSampling) == 0 
+    return (round(Int, t / simSet.dt) % simSet.idxSampling) == 0
 end
 
 """
@@ -541,11 +563,13 @@ Samples the viral and immune distribution in `vi2D` by pushing them to the corre
 function sampleDistributions!(vi2D::viralImmuneDistribution2D, sampDist::sampledResults)
     push!(sampDist.nxt, vi2D.nx)
     push!(sampDist.hxt, vi2D.hx)
+    push!(sampDist.Refft, vi2D.Reff)
 end
 
 function sampleDistributionsNSpecies!(vi2D::viralImmuneDistribution2D, sampDist::sampledResults, mParams::modelParams)
     push!(sampDist.nxt, vi2D.nx)
     push!(sampDist.hxt, vi2D.hx)
+    push!(sampDist.Refft, vi2D.Reff)
     push!(sampDist.speciest, getSpecies(vi2D, mParams.r))
 end
 
@@ -556,8 +580,8 @@ function plotDistributions(vi2D::viralImmuneDistribution2D)::Plots.Plot
     return plotDistributionsIdxs(vi2D.nx, vi2D.hx, vi2D.x, vi2D.y, idxs)
 end
 
-function plotDistributionsIdxs(nx::Matrix{<:Integer}, hx::Matrix{<:Integer}, x::UnitRange, y::UnitRange, plottingIdx::CartesianIndices)::Plots.Plot    
-    
+function plotDistributionsIdxs(nx::Matrix{<:Integer}, hx::Matrix{<:Integer}, x::UnitRange, y::UnitRange, plottingIdx::CartesianIndices)::Plots.Plot
+
     nxNaN = replace(nx, 0 => NaN)
     hxNaN = replace(hx, 0 => NaN)
 
@@ -565,11 +589,11 @@ function plotDistributionsIdxs(nx::Matrix{<:Integer}, hx::Matrix{<:Integer}, x::
     yRange = y[plottingIdx.indices[2]]
 
     nFactor = maximum(hx) / maximum(nx)
-    hp = heatmap(xRange, yRange, hxNaN[plottingIdx]', zlabel=raw"$h(x,y)$", xlabel=raw"$x$", ylabel = raw"$y$", c=cgrad(:Blues, scale  = :exp), colorbar_title = raw"$h(x,y)$", cbar = :none)
-    return heatmap!(hp, xRange, yRange, nxNaN[plottingIdx]' .* nFactor, zlabel=raw"$n(x,y)$", xlabel=raw"$x$", ylabel = raw"$y$", c=cgrad(:magma, scale  = :exp), colorbar_title = raw"$n(x,y)$", cbar = :none)
+    hp = heatmap(xRange, yRange, hxNaN[plottingIdx]', zlabel=raw"$h(x,y)$", xlabel=raw"$x$", ylabel=raw"$y$", c=cgrad(:Blues, scale=:exp), colorbar_title=raw"$h(x,y)$", cbar=:none)
+    return heatmap!(hp, xRange, yRange, nxNaN[plottingIdx]' .* nFactor, zlabel=raw"$n(x,y)$", xlabel=raw"$x$", ylabel=raw"$y$", c=cgrad(:magma, scale=:exp), colorbar_title=raw"$n(x,y)$", cbar=:none)
 end
 
-function plotAnimation(sampDist::sampledResults, x::Union{UnitRange, Nothing} = nothing, y::Union{UnitRange, Nothing} = nothing)
+function plotAnimation(sampDist::sampledResults, x::Union{UnitRange,Nothing}=nothing, y::Union{UnitRange,Nothing}=nothing)
 
     isempty(sampDist.nxt) && throw(ArgumentError("The given sampled distributions are empty"))
 
@@ -583,8 +607,8 @@ function plotAnimation(sampDist::sampledResults, x::Union{UnitRange, Nothing} = 
     NscalingFactor = maxH/maxN
 
     animation = @animate for i in 1:length(sampDist.nxt)
-        hp = heatmap(x, y, replace(sampDist.hxt[i], 0 => NaN)', zlabel=raw"$h(x,y)$", xlabel=raw"$x$", ylabel = raw"$y$", clims = (0, maxH), c=cgrad(:Blues, scale  = :exp), cbar = :none)
-        heatmap!(x, y, replace(sampDist.nxt[i], 0 => NaN)' .* NscalingFactor, zlabel = raw"$n(x,y)$", c=cgrad(:magma, scale  = :exp), cbar = :none)
+        hp = heatmap(x, y, replace(sampDist.hxt[i], 0 => NaN)', zlabel=raw"$h(x,y)$", xlabel=raw"$x$", ylabel=raw"$y$", clims=(0, maxH), c=cgrad(:Blues, scale=:exp), cbar=:none)
+        heatmap!(x, y, replace(sampDist.nxt[i], 0 => NaN)' .* NscalingFactor, zlabel=raw"$n(x,y)$", c=cgrad(:magma, scale=:exp), cbar=:none)
     end
 
     g = gif(animation)
@@ -594,24 +618,24 @@ end
 
 # Viral species 
 
-function getSpecies(vi2D::viralImmuneDistribution2D, r::Real; withMask::Bool = false)::Vector{viralSpecies}
+function getSpecies(vi2D::viralImmuneDistribution2D, r::Real; withMask::Bool=false)::Vector{viralSpecies}
     viralLabels = getViralLabels(vi2D.nx, r)
-    speciesVector = getSpeciesValues(viralLabels, vi2D.nx, vi2D.x, vi2D.y, vi2D.Reff, withMask = withMask)
+    speciesVector = getSpeciesValues(viralLabels, vi2D.nx, vi2D.x, vi2D.y, vi2D.Reff, withMask=withMask)
 end
 
 function isolateBestSpeciesBack2Origin!(vi2D::viralImmuneDistribution2D, mParams::modelParams)
-    speciesVector = getSpecies(vi2D, mParams.r, withMask = true)
+    speciesVector = getSpecies(vi2D, mParams.r, withMask=true)
     bestSpecies = getBestSpecies(speciesVector)
     vi2D.nx = getMaskedDistribution(bestSpecies)
     translateDistributionBack2Origin!(vi2D, mParams)
 end
 
 function hasSpeciationHappened(sampDist::sampledResults)::Bool
-    return length(sampDist.speciest[end]) > length(sampDist.speciest[end - 1])
+    return length(sampDist.speciest[end]) > length(sampDist.speciest[end-1])
 end
 
 function hasExtinctionHappened(sampDist::sampledResults)::Bool
-    return length(sampDist.speciest[end]) < length(sampDist.speciest[end - 1])
+    return length(sampDist.speciest[end]) < length(sampDist.speciest[end-1])
 end
 
 # =========================================================
@@ -625,18 +649,18 @@ end
 """
 Next-neighbour jump distribution with counter-clockwise probability vector p.
 """
-struct NextNeighbour{T<:Real, TV<:AbstractVector{T}} <: DiscreteMultivariateDistribution
+struct NextNeighbour{T<:Real,TV<:AbstractVector{T}} <: DiscreteMultivariateDistribution
     p::TV
-    NextNeighbour{T, TV}(p::TV) where {T <: Real, TV <: AbstractVector{T}} = new{T, TV}(p)
+    NextNeighbour{T,TV}(p::TV) where {T<:Real,TV<:AbstractVector{T}} = new{T,TV}(p)
 end
 
-function NextNeighbour(p::AbstractVector{T}; check_args::Bool = true) where {T<:Real}
+function NextNeighbour(p::AbstractVector{T}; check_args::Bool=true) where {T<:Real}
     length(p) == 4 || throw(ArgumentError("p is not of length 4."))
     isprobvec(p) || throw(ArgumentError("p is not a probability vector."))
-    return NextNeighbour{T, typeof(p)}(p)
+    return NextNeighbour{T,typeof(p)}(p)
 end
 
-NextNeighbour() = NextNeighbour{Float64, Vector{Float64}}(0.25*ones(4))
+NextNeighbour() = NextNeighbour{Float64,Vector{Float64}}(0.25*ones(4))
 
 # Parameters
 
@@ -675,13 +699,13 @@ function cov(d::NextNeighbour{T}) where T<:Real
     v = var(d)
 
     for j = 1:k
-        C[j,j] = v[j]
+        C[j, j] = v[j]
     end
 
-    for j = 1:k-1
-        for i = j+1:k
-            C[i,j] = -m[i]*m[j]
-            C[i,j] = C[j,i]
+    for j = 1:(k-1)
+        for i = (j+1):k
+            C[i, j] = -m[i]*m[j]
+            C[i, j] = C[j, i]
         end
     end
     C
@@ -721,13 +745,13 @@ function insupport(d::NextNeighbour, x::AbstractVector{T}) where T<:Real
 end
 
 function Distributions._logpdf(d::NextNeighbour, x::AbstractVector{T}) where T<:Real
-    
+
     p = probs(d)
     S = eltype(p)
     R = promote_type(T, S)
-    insupport(d,x) || return -R(Inf)
-    
-    return R(log(p[(2 - x[1])*abs(x[1]) + (3 - x[2])*abs(x[2])]))
+    insupport(d, x) || return -R(Inf)
+
+    return R(log(p[(2-x[1])*abs(x[1])+(3-x[2])*abs(x[2])]))
 end
 
 # Sampling
@@ -738,7 +762,7 @@ function Distributions._rand!(rng::AbstractRNG, d::NextNeighbour, x::AbstractVec
 
     p = probs(d)
     cump = cumsum(p)
-    
+
     xi = rand(rng)
     neighbour = findfirst(cump .> xi)
 

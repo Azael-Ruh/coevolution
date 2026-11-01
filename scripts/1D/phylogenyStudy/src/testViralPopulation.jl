@@ -2,7 +2,7 @@ using Test
 
 include("viralPopulation.jl")
 
-@testset  "viralPopulation" begin
+@testset "viralPopulation" begin
 
     @testset "constructors" begin
         x = 0:10
@@ -65,7 +65,7 @@ include("viralPopulation.jl")
 
         @test sum(length.(population.viralNodes)) == sum(nx) + 1
         @test length(population.viralNodes[idxPos]) == nx[idxPos] + 1
-        @test first(population.viralNodes[idxPos]) != last(population.viralNodes[idxPos])  
+        @test first(population.viralNodes[idxPos]) != last(population.viralNodes[idxPos])
         @test first(population.viralNodes[idxPos]).birthTime == t
         @test first(population.viralNodes[idxPos]).parent == last(population.viralNodes[idxPos]).parent
 
@@ -78,11 +78,11 @@ include("viralPopulation.jl")
 
         @test sum(length.(population.viralNodes)) == sum(nx) + 1
         @test length(population.viralNodes[idxPos]) == nx[idxPos] + 1
-        @test first(population.viralNodes[idxPos]) != last(population.viralNodes[idxPos])  
+        @test first(population.viralNodes[idxPos]) != last(population.viralNodes[idxPos])
         @test filter(x -> x != fatherNode, population.viralNodes[idxPos]) == population.viralNodes[idxPos]
         @test length(filter(x -> x.parent == fatherNode, population.viralNodes[idxPos])) == 2
         @test length(filter(x -> x.parent != fatherNode, population.viralNodes[idxPos])) == nx[idxPos] - 1
-        @test filter(x -> x.parent != fatherNode, population.viralNodes[idxPos]) == population.viralNodes[idxPos][1:end-2]
+        @test filter(x -> x.parent != fatherNode, population.viralNodes[idxPos]) == population.viralNodes[idxPos][1:(end-2)]
 
         x = 0:10
         population = initialiseViralPopulation(x)
@@ -109,11 +109,11 @@ include("viralPopulation.jl")
 
         @test sum(length.(population.viralNodes)) == sum(nx) + 1
         @test length(population.viralNodes[idxPos]) == nx[idxPos] + 1
-        @test first(population.viralNodes[idxPos]) != last(population.viralNodes[idxPos])  
+        @test first(population.viralNodes[idxPos]) != last(population.viralNodes[idxPos])
         @test filter(x -> x != fatherNode, population.viralNodes[idxPos]) == population.viralNodes[idxPos]
         @test length(filter(x -> x.parent == fatherNode, population.viralNodes[idxPos])) == 2
         @test length(filter(x -> x.parent != fatherNode, population.viralNodes[idxPos])) == nx[idxPos] - 1
-        @test filter(x -> x.parent != fatherNode, population.viralNodes[idxPos]) == population.viralNodes[idxPos][1:end-2]
+        @test filter(x -> x.parent != fatherNode, population.viralNodes[idxPos]) == population.viralNodes[idxPos][1:(end-2)]
 
         nx = zero(x)
         nx[idxPos] = 3
@@ -123,7 +123,7 @@ include("viralPopulation.jl")
 
         reproduceNVirus!(population, idxPos, N)
 
-        fatherNodes = [population.viralNodes[idxPos][i].parent for i = eachindex(population.viralNodes[idxPos])[end-3:2:end]]
+        fatherNodes = [population.viralNodes[idxPos][i].parent for i = eachindex(population.viralNodes[idxPos])[(end-3):2:end]]
 
         @test sum(length.(population.viralNodes)) == sum(nx) + 2
         @test length(population.viralNodes[idxPos]) == nx[idxPos] + 2
@@ -155,7 +155,7 @@ include("viralPopulation.jl")
         @test sum(length.(population.viralNodes)) == sum(nx)
         @test length(population.viralNodes[idxPos]) == nx[idxPos] - 1
         @test length(population.viralNodes[newIdxPos]) == nx[newIdxPos] + 1
-        @test first(population.viralNodes[newIdxPos]).birthTime == t  
+        @test first(population.viralNodes[newIdxPos]).birthTime == t
         @test first(population.viralNodes[newIdxPos]).parent == parent
         @test first(population.viralNodes[newIdxPos]).children == children
 
@@ -175,13 +175,13 @@ include("viralPopulation.jl")
         @test length(population.viralNodes[idxPos]) == nx[idxPos] - 1
         @test length(population.viralNodes[newIdxPos]) == nx[newIdxPos] + 1
         @test last(population.viralNodes[newIdxPos]).birthTime == t
-        @test last(population.viralNodes[newIdxPos]).position == population.space[newIdxPos] 
-        @test isempty(filter(x -> x == ogVirus, population.viralNodes[idxPos])) 
-        @test length( filter(x -> x != ogVirus, population.viralNodes[idxPos])) == nx[idxPos] - 1
+        @test last(population.viralNodes[newIdxPos]).position == population.space[newIdxPos]
+        @test isempty(filter(x -> x == ogVirus, population.viralNodes[idxPos]))
+        @test length(filter(x -> x != ogVirus, population.viralNodes[idxPos])) == nx[idxPos] - 1
     end
 
     @testset "killVirus" begin
-        
+
         x = 0:10
         population = initialiseViralPopulation(x)
         idxPos = 6
@@ -197,8 +197,8 @@ include("viralPopulation.jl")
 
         @test all(isempty.(population.viralNodes))
         @test length(population.viralNodes[idxPos]) == nx[idxPos] - 1
-        @test length.(population.viralNodes[1:idxPos-1]) == nx[1:idxPos-1]
-        @test length.(population.viralNodes[idxPos+1:end]) == nx[idxPos+1:end]
+        @test length.(population.viralNodes[1:(idxPos-1)]) == nx[1:(idxPos-1)]
+        @test length.(population.viralNodes[(idxPos+1):end]) == nx[(idxPos+1):end]
 
         idxVirus = [5, 6, 7]
         nx = zero(x)
@@ -209,8 +209,8 @@ include("viralPopulation.jl")
 
         @test sum(length.(population.viralNodes)) == sum(nx) - 1
         @test length(population.viralNodes[idxPos]) == nx[idxPos] - 1
-        @test length.(population.viralNodes[1:idxPos-1]) == nx[1:idxPos-1]
-        @test length.(population.viralNodes[idxPos+1:end]) == nx[idxPos+1:end]
+        @test length.(population.viralNodes[1:(idxPos-1)]) == nx[1:(idxPos-1)]
+        @test length.(population.viralNodes[(idxPos+1):end]) == nx[(idxPos+1):end]
         # @test isempty(filter(x -> x == killedVirus, population.viralNodes[idxPos])) 
 
         idxVirus = [5, 6, 7]
@@ -225,8 +225,8 @@ include("viralPopulation.jl")
 
         @test sum(length.(population.viralNodes)) == sum(nx) + 1 - 1
         @test length(population.viralNodes[idxPos]) == nx[idxPos] + 1 - 1
-        @test length.(population.viralNodes[1:idxPos-1]) == nx[1:idxPos-1]
-        @test length.(population.viralNodes[idxPos+1:end]) == nx[idxPos+1:end]
+        @test length.(population.viralNodes[1:(idxPos-1)]) == nx[1:(idxPos-1)]
+        @test length.(population.viralNodes[(idxPos+1):end]) == nx[(idxPos+1):end]
         # @test isempty(filter(x -> x == killedVirus, population.viralNodes[idxPos])) 
         @test first(population.viralNodes[idxPos]).parent == nothing
 
@@ -235,7 +235,7 @@ include("viralPopulation.jl")
         nx = zero(x)
         nx[idxPos] = 3
         population = initialiseViralPopulation(x, nx)
-        
+
         t = 1
         N = 0
         @test_throws ArgumentError killNvirus!(population, idxPos, N)
@@ -248,12 +248,12 @@ include("viralPopulation.jl")
 
         @test sum(length.(population.viralNodes)) == sum(nx) - N
         @test length(population.viralNodes[idxPos]) == nx[idxPos] - N
-        @test length.(population.viralNodes[1:idxPos-1]) == nx[1:idxPos-1]
-        @test length.(population.viralNodes[idxPos+1:end]) == nx[idxPos+1:end]
+        @test length.(population.viralNodes[1:(idxPos-1)]) == nx[1:(idxPos-1)]
+        @test length.(population.viralNodes[(idxPos+1):end]) == nx[(idxPos+1):end]
     end
 
     @testset "getMRCAtimes" begin
-        
+
         x = 0:10
         population = initialiseViralPopulation(x)
 

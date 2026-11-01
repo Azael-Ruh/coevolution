@@ -2,7 +2,7 @@ using Test
 
 include("viralNode.jl")
 
-@testset  "viralNode" begin
+@testset "viralNode" begin
 
     @testset "constructor" begin
         node = viralNode()
@@ -10,21 +10,32 @@ include("viralNode.jl")
         @test node.children == []
         @test node.birthTime == 0
         @test node.position == 0
+        @test node.isSampled == false
         @test isnothing(node.parent)
+        @test node.divergenceFromRoot == 0
 
         nodeChild = viralNode(node)
         @test typeof(nodeChild) == viralNode
+        @test first(node.children) == nodeChild
         @test nodeChild.children == []
         @test nodeChild.birthTime == 0
         @test nodeChild.position == 0
         @test nodeChild.parent == node
+        @test nodeChild.isSampled == false
+        @test node.divergenceFromRoot == 0
+
+        t = 1
+        x = 1
+        mutateNode!(nodeChild, x, t)
+        nodeChild2 = viralNode(nodeChild)
+        @test nodeChild2.divergenceFromRoot == nodeChild.divergenceFromRoot
     end
 
     @testset "reproduceNode" begin
         node = viralNode()
         t = 1
         children = reproduceNode!(node, t)
-        
+
         @test length(node.children) == 2
         @test first(node.children).birthTime == t
         @test last(node.children).birthTime == t
@@ -48,6 +59,7 @@ include("viralNode.jl")
         @test node.birthTime == t
         @test node.position == newPos
         @test isnothing(node.parent)
+        @test node.divergenceFromRoot == 1
     end
 
     @testset "killNode" begin
@@ -67,6 +79,37 @@ include("viralNode.jl")
         @test length(node.children) == 1
         @test first(node.children) !== child1
         @test first(node.children) == child2
+
+        node = viralNode()
+        reproduceNode!(node, t)
+        child1 = first(node.children)
+        child2 = last(node.children)
+        sampleNode!(child2)
+
+        @test child2.isSampled
+
+        killNode!(child2)
+
+        @test length(node.children) == 2
+        @test first(node.children) == child1
+        @test last(node.children) == child2
+
+        node = viralNode()
+        t = 1
+        reproduceNode!(node, t)
+        child1 = first(node.children)
+        child2 = last(node.children)
+        sampleNode!(child2)
+
+        t = 2
+        reproduceNode!(child2, t)
+        child21 = first(child2.children)
+        child22 = last(child2.children)
+        killNode!(child21)
+        killNode!(child22)
+
+        @test length(node.children) == 2
+        @test last(node.children) == child2
 
         node = viralNode()
         t = 1
@@ -92,7 +135,7 @@ include("viralNode.jl")
         @test first(child1.children) == child12
 
         killNode!(child12)
-        @test child2.parent == nothing
+        @test isnothing(child2.parent)
 
         node = viralNode()
         t = 1
@@ -125,9 +168,9 @@ include("viralNode.jl")
 
         @test_throws ArgumentError getMRCAtime(child1, node)
         @test_throws ArgumentError getMRCAtime(node, child1)
-        
+
         @test getMRCAtime(child1, child2) == 1
-        
+
         t = 2
         reproduceNode!(child1, t)
 
@@ -140,7 +183,7 @@ include("viralNode.jl")
 
         node2 = viralNode()
         node3 = viralNode()
-        
+
         @test getMRCAtime(node2, node3) == Inf
 
         t = 1

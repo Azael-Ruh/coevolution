@@ -34,17 +34,17 @@ Initialise a viral population with space vector `x` and viruses distributed as i
 julia>
 ```
 """
-function initialiseViralPopulation(x::UnitRange{<:Integer}, nx::Vector{<:Integer} = Vector{Int64}(undef, 0))::viralPopulation
-    
+function initialiseViralPopulation(x::UnitRange{<:Integer}, nx::Vector{<:Integer}=Vector{Int64}(undef, 0))::viralPopulation
+
     isempty(nx) && return viralPopulation(x)
     nxAux = copy(nx)
 
     idxMax = length(x)
     viralNodes = [Vector{viralNode}(undef, 0) for i in 1:idxMax]
-    
-    while (idx = findfirst(nxAux .> 0)) != nothing
-        while nxAux[idx] >0
-            push!(viralNodes[idx], viralNode(0, x[idx], [], nothing))
+
+    while (idx = findfirst(nxAux .> 0)) !== nothing
+        while nxAux[idx] > 0
+            push!(viralNodes[idx], viralNode(0, x[idx], [], nothing, false, 0, 0))
             nxAux[idx] -= 1
         end
     end
@@ -62,14 +62,14 @@ Reproduce a random virus at position given by the index `positionIdx` in populai
 julia>
 ```
 """
-function reproduceVirus!(vPop::viralPopulation, positionIdx::Integer, t::Real = 0)
+function reproduceVirus!(vPop::viralPopulation, positionIdx::Integer, t::Real=0, fitness::Real=0)
 
     numVirus = length(vPop.viralNodes[positionIdx])
 
     numVirus == 0 && throw(ArgumentError("There is no virus at index $positionIdx"))
 
     randomIdx = rand(1:numVirus)
-    append!(vPop.viralNodes[positionIdx], reproduceNode!(vPop.viralNodes[positionIdx][randomIdx], t))
+    append!(vPop.viralNodes[positionIdx], reproduceNode!(vPop.viralNodes[positionIdx][randomIdx], t, fitness))
     deleteat!(vPop.viralNodes[positionIdx], randomIdx)
 end
 
@@ -83,8 +83,8 @@ Reproduce `N` random viruses at position given by the index `positionIdx` in pop
 julia>
 ```
 """
-function reproduceNVirus!(vPop::viralPopulation, positionIdx::Integer, N::Integer, t::Real = 0)
-    
+function reproduceNVirus!(vPop::viralPopulation, positionIdx::Integer, N::Integer, t::Real=0, fitness::Real=0)
+
     numVirus = length(vPop.viralNodes[positionIdx])
 
     numVirus == 0 && throw(ArgumentError("There is no virus at index $positionIdx"))
@@ -92,9 +92,9 @@ function reproduceNVirus!(vPop::viralPopulation, positionIdx::Integer, N::Intege
     N > 0 || throw(ArgumentError("The number of viruses to reproduce must be positive"))
     N > numVirus && throw(ArgumentError("The number of viruses to reproduce ($N) cannot exceed the number of viruses ($numVirus) in the designed position"))
 
-    selectedIdx = sample(1:numVirus, N, replace = false)
+    selectedIdx = sample(1:numVirus, N, replace=false)
     for idx in selectedIdx
-        append!(vPop.viralNodes[positionIdx], reproduceNode!(vPop.viralNodes[positionIdx][idx], t))
+        append!(vPop.viralNodes[positionIdx], reproduceNode!(vPop.viralNodes[positionIdx][idx], t, fitness))
         deleteat!(vPop.viralNodes[positionIdx], idx)
     end
 end
@@ -109,15 +109,15 @@ Mutate a random virus from `originalPositionIdx` to `newPositionIdx` in populait
 julia>
 ```
 """
-function mutateVirus!(vPop::viralPopulation, originalPositionIdx::Integer, newPositionIdx::Integer, t::Real = 0)
+function mutateVirus!(vPop::viralPopulation, originalPositionIdx::Integer, newPositionIdx::Integer, t::Real=0, newFitness::Real=0)
 
     numVirus = length(vPop.viralNodes[originalPositionIdx])
 
     numVirus == 0 && throw(ArgumentError("There is no virus at index $originalPositionIdx"))
 
     randomIdx = rand(1:numVirus)
-    push!(vPop.viralNodes[newPositionIdx], mutateNode!(vPop.viralNodes[originalPositionIdx][randomIdx], vPop.space[newPositionIdx], t))
-    deleteat!(vPop.viralNodes[originalPositionIdx], randomIdx) 
+    push!(vPop.viralNodes[newPositionIdx], mutateNode!(vPop.viralNodes[originalPositionIdx][randomIdx], vPop.space[newPositionIdx], t, newFitness))
+    deleteat!(vPop.viralNodes[originalPositionIdx], randomIdx)
 end
 
 """
@@ -157,7 +157,7 @@ julia>
 ```
 """
 function killNvirus!(vPop::viralPopulation, positionIdx::Integer, N::Integer)
-    
+
     numVirus = length(vPop.viralNodes[positionIdx])
 
     numVirus == 0 && throw(ArgumentError("There is no virus at index $positionIdx"))
@@ -165,8 +165,8 @@ function killNvirus!(vPop::viralPopulation, positionIdx::Integer, N::Integer)
     N > 0 || throw(ArgumentError("The number of viruses to reproduce must be positive"))
     N > numVirus && throw(ArgumentError("The number of viruses to reproduce ($N) cannot exceed the number of viruses ($numVirus) in the designed position"))
 
-    selectedIdx = sample(1:numVirus, N, replace = false)
-    sort!(selectedIdx, rev = true) #TODO: ASK GUSTAVO
+    selectedIdx = sample(1:numVirus, N, replace=false)
+    sort!(selectedIdx, rev=true)
     while !isempty(selectedIdx)
 
         idx = pop!(selectedIdx)
@@ -192,29 +192,57 @@ Get an `NSampling` leaves based random sample (or full if NSampling = 0) of the 
 julia>
 ```
 """
-function getMRCAtimes(vPop::viralPopulation, NSampling::Integer = 0)::Vector{<:Real}
+function getMRCAtimes(vPop::viralPopulation, NSampling::Integer=0)::Vector{<:Real}
 
     allLeaves = vcat(vPop.viralNodes...)
-    Ntotal = length(allLeaves)
-
-    if Ntotal <= 1
-        Ntotal == 0 ? throw(ArgumentError("There is no virus in the given population")) : throw(ArgumentError("There is only one virus in the given population"))
-    end
-
-    NSampling < 0 && throw(ArgumentError("NSampling needs to be non-negative"))
-    NSampling > Ntotal && throw(ArgumentError("NSampling needs to be smaller that the total number of leaves $Ntotal"))
-    NSampling == Ntotal && (NSampling = 0)
-
-    NSampling > 0 ? (selectedLeaves = sample(allLeaves, NSampling, replace = false)) :  (selectedLeaves = allLeaves)
-
-    MRCAtimes = Vector{Real}(undef, 0)
-    for i in eachindex(selectedLeaves), j in eachindex(selectedLeaves)[1:i-1]
-        push!(MRCAtimes, getMRCAtime(selectedLeaves[i], selectedLeaves[j]))
-    end
-
-    return MRCAtimes
+    return getMRCAtimes(allLeaves, NSampling)
 end
 
 function getViralDistribution(vPop::viralPopulation)
     return length.(vPop.viralNodes)
+end
+
+function getAnchorNode(vPop::viralPopulation)::viralNode
+    node = first(vPop.viralNodes[findfirst(.!isempty.(vPop.viralNodes))])
+    while (!isnothing(node.parent))
+        node = node.parent
+    end
+    return node
+end
+
+function getAllSampledNodes(vPop::viralPopulation)::Vector{viralNode}
+    anchorNode = getAnchorNode(vPop)
+    return getSampledFromNode(anchorNode)
+end
+
+function getSampledTree(vPop::viralPopulation)::viralNode
+    anchorNode = getAnchorNode(vPop)
+    return getSampledTreeFromNode(anchorNode, nothing)
+end
+
+"""
+    getFullSampledTree!(vPop::viralPopulation)::viralNode
+
+Produces a viral tree from vPop.viralNodes that only keeps the branches that have sampled nodes. WARNING: kills the viral population, rendering vPop unusable.
+"""
+function getFullSampledTree!(vPop::viralPopulation)::viralNode
+    anchorNode = getAnchorNode(vPop)
+    for (idx, nVirus) in enumerate(getViralDistribution(vPop))
+        nVirus > 0 && killNvirus!(vPop, idx, nVirus)
+    end
+    return anchorNode
+end
+
+"""
+    getFullSampledTree!(vPop::viralPopulation)::viralNode
+
+Produces a viral tree from vPop.viralNodes that only keeps the branches that have sampled nodes. WARNING: uses a deep copy of the population, it can double the memory use.
+"""
+function getFullSampledTreeCopy(vPop::viralPopulation)::viralNode
+    vPop2kill = deepcopy(vPop)
+    newAnchorNode = getAnchorNode(vPop2kill)
+    for (idx, nVirus) in enumerate(getViralDistribution(vPop2kill))
+        nVirus > 0 && killNvirus!(vPop2kill, idx, nVirus)
+    end
+    return newAnchorNode
 end

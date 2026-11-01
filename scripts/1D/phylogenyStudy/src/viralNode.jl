@@ -2,10 +2,17 @@ mutable struct viralNode
     birthTime::Real
     position::Real
     children::Vector{viralNode}
-    parent::Union{viralNode, Nothing}
+    parent::Union{viralNode,Nothing}
+    isSampled::Bool
+    divergenceFromRoot::Int
+    fitness::Real
 end
 
-import Base: broadcastable
+import Base: broadcastable, show
+
+function show(io::IO, vNode::viralNode)
+    print(io, "viralNode with t = ", vNode.birthTime, ",  x = ", vNode.position, ", ", "children = ", length(vNode.children), ", ", isnothing(vNode.parent) ? "no" : "a", " parent, ", vNode.isSampled ? "isSampled = true, " : "isSampled = false, ", "divergence = ", vNode.divergenceFromRoot, ", fitness = ", vNode.fitness, ".")
+end
 
 # For broadcastability
 function broadcastable(vNode::viralNode)
@@ -22,8 +29,8 @@ Produce an empty viral node born at time `t` at position `pos` without parent.
 julia>
 ```
 """
-function viralNode(t::Real = 0, pos::Real = 0)::viralNode
-    viralNode(t, pos, [], nothing)
+function viralNode(t::Real=0, pos::Real=0)::viralNode
+    viralNode(t, pos, [], nothing, false, 0, 0)
 end
 
 """
@@ -36,9 +43,15 @@ Produce an empty viral node born at time `t` at position `pos` from parent `pNod
 julia>
 ```
 """
-function viralNode(pNode::viralNode, t::Real = 0, pos::Real = 0)
-    viralNode(t, pos, [], pNode)
+function viralNode(pNode::viralNode, t::Real=0, pos::Real=0, fitness::Real=0)
+    cNode = viralNode(t, pos, [], pNode, false, pNode.divergenceFromRoot, fitness)
+    push!(pNode.children, cNode)
+    cNode
 end
+
+getBirthTime(node::viralNode) = node.birthTime
+getDivergence(node::viralNode) = node.divergenceFromRoot
+getFitness(node::viralNode) = node.fitness
 
 """
     reproduceNode!(node::viralNode, t::Real)::Vector{viralNode}
@@ -50,17 +63,17 @@ Reproduce the viral node `node` and anotate it with time `t` and returns the two
 julia>
 ```
 """
-function reproduceNode!(node::viralNode, t::Real)::Vector{viralNode}
+function reproduceNode!(node::viralNode, t::Real, fitness::Real=0)::Vector{viralNode}
 
     if !isempty(node.children)
         throw(ArgumentError("The given node is not a leaf!"))
     end
 
     nodePos = node.position
-    child1 = viralNode(node, t, nodePos)
-    child2 = viralNode(node, t, nodePos)
+    viralNode(node, t, nodePos, fitness)
+    viralNode(node, t, nodePos, fitness)
 
-    return node.children = [child1, child2]
+    return node.children
 end
 
 """
@@ -73,11 +86,24 @@ Mutate the the viral node `node` to position `newPosition` at time `t`.
 julia>
 ```
 """
-function mutateNode!(node::viralNode, newPosition::Real, t::Real)::viralNode
+function mutateNode!(node::viralNode, newPosition::Real, t::Real, newfitness::Real=0)::viralNode
     node.position = newPosition
     node.birthTime = t
+    node.divergenceFromRoot += 1
+    node.fitness = newfitness
     return node
 end
+
+"""
+    sampleNode(node::viralNode)
+
+Mark `node` as sampled
+"""
+function sampleNode!(node::viralNode)
+    node.isSampled = true
+end
+
+isSampled(node::viralNode) = node.isSampled
 
 """
     killNode(vTree::viralTree, idx::Int)
@@ -99,16 +125,20 @@ function killNode!(node::viralNode)
         throw(ArgumentError("The given node is the anchor node of the tree"))
     end
 
+    isSampled(node) && return
+
     pNode = node.parent
-    pNode.children = filter(x -> x !==node, pNode.children)
+    pNode.children = filter(x -> x !== node, pNode.children)
 
     while isempty(pNode.children)
+        isSampled(pNode) && return
         node = pNode
         pNode = node.parent
-        pNode.children = filter(x -> x !==node, pNode.children)
+        pNode.children = filter(x -> x !== node, pNode.children)
     end
 
-    while (pNode.parent == nothing) && (length(pNode.children) == 1)
+    while isnothing(pNode.parent) && (length(pNode.children) == 1)
+        isSampled(pNode) && return
         pNode = first(pNode.children)
         pNode.parent = nothing
     end
@@ -127,18 +157,18 @@ julia>
 """
 function getMRCAtime(node1::viralNode, node2::viralNode)::Real
 
-    if !isempty(node1.children) || !isempty(node2.children)
-        throw(ArgumentError("One of the given nodes is not a leaf!"))
-    end
+    # if !isempty(node1.children) || !isempty(node2.children)
+    #     throw(ArgumentError("One of the given nodes is not a leaf!"))
+    # end
 
     tPresent = max(node1.birthTime, node2.birthTime)
 
     #TODO: think about this when all nodes have same times!
-    while !(node1 == node2)    
+    while !(node1 == node2)
         if node2.birthTime >= node1.birthTime
-            node2.parent == nothing ? (return Inf) : (node2 = node2.parent)
+            isnothing(node2.parent) ? (return Inf) : (node2 = node2.parent)
         else
-            node1.parent == nothing ? (return Inf) : (node1 = node1.parent)
+            isnothing(node1.parent) ? (return Inf) : (node1 = node1.parent)
         end
     end
 
@@ -146,52 +176,128 @@ function getMRCAtime(node1::viralNode, node2::viralNode)::Real
     return tMRCA
 end
 
+"""
+    getMRCAtimes(allLeaves::Vector{viralNode}, NSampling::Integer=0)::Vector{<:Real}
+
+Get an `NSampling` leaves based random sample (or full if NSampling = 0) of the two point times to the Most Recent Common Ancestor (MRCA) for viralNodes in `allLeaves`.  
+
+# Examples
+```julia-repl
+julia>
+```
+"""
+function getMRCAtimes(allLeaves::Vector{viralNode}, NSampling::Integer=0)::Vector{<:Real}
+
+    Ntotal = length(allLeaves)
+
+    if Ntotal <= 1
+        Ntotal == 0 ? throw(ArgumentError("There is no virus in the given population")) : throw(ArgumentError("There is only one virus in the given population"))
+    end
+
+    NSampling < 0 && throw(ArgumentError("NSampling needs to be non-negative"))
+    NSampling > Ntotal && throw(ArgumentError("NSampling needs to be smaller that the total number of leaves $Ntotal"))
+    NSampling == Ntotal && (NSampling = 0)
+
+    NSampling > 0 ? (selectedLeaves = sample(allLeaves, NSampling, replace=false)) : (selectedLeaves = allLeaves)
+
+    MRCAtimes = Vector{Real}(undef, 0)
+    for i in eachindex(selectedLeaves), j in eachindex(selectedLeaves)[1:(i-1)]
+        push!(MRCAtimes, getMRCAtime(selectedLeaves[i], selectedLeaves[j]))
+    end
+
+    return MRCAtimes
+
+end
+
+function getSampledFromNode(node::viralNode)
+
+    sampledNodes = viralNode[]
+    nodes2check = [node]
+
+    while !isempty(nodes2check)
+        node = popfirst!(nodes2check)
+        isSampled(node) && push!(sampledNodes, node)
+        append!(nodes2check, node.children)
+    end
+
+    return sampledNodes
+end
+
+function getSampledTreeFromNode(node::viralNode, parentNode::Union{viralNode,Nothing})
+    newAnchorNode = viralNode(node.birthTime, node.position, viralNode[], parentNode, node.isSampled, node.divergenceFromRoot, node.fitness)
+
+    nodes2check = viralNode[]
+    append!(nodes2check, node.children)
+    childrenList = viralNode[]
+
+    while !isempty(nodes2check)
+        child = popfirst!(nodes2check)
+        if isSampled(child)
+            push!(childrenList, getSampledTreeFromNode(child, newAnchorNode))
+            println("Found sampled node with $(length(child.children)) children")
+        else
+            append!(nodes2check, child.children)
+        end
+    end
+
+    newAnchorNode.children = childrenList
+    return newAnchorNode
+end
+
 # =======================================================================
 #                           Plotting tools
 # =======================================================================
 
-# using BasicTreePlots, AbstractTrees, CairoMakie
+using BasicTreePlots, AbstractTrees, CairoMakie
 
-# import AbstractTrees: children
-# import BasicTreePlots: distance, label
+import AbstractTrees: children
+import BasicTreePlots: distance, label
 
-# function children(node::viralNode)::Vector{viralNode}
-#     return node.children
-# end
+function children(node::viralNode)::Vector{viralNode}
+    return node.children
+end
 
-# # Need to think about where to plot the split!!!
-# function distance(node::viralNode)::Real
-#     return node.birthTime - node.parent.birthTime
-# end
+# Need to think about where to plot the split!!!
+function distance(node::viralNode)::Real
+    return node.birthTime - node.parent.birthTime
+end
 
-# function label(node::viralNode)::String
-#     return "x=$(round(Int, node.position))"
-# end
+function label(node::viralNode)::String
+    return "$(round(Int, node.divergenceFromRoot))"
+end
 
 
-# """
-#     plotTreeFromNode(node::viralNode)
+"""
+    plotTreeFromNode(node::viralNode)
 
-# Produce a tree plot for the biggest tree `node` is in using BasicTreePlots.
+Produce a tree plot for the biggest tree `node` is in using BasicTreePlots.
 
-# # Examples
-# ```julia-repl
-# julia>
-# ```
-# """
-# function plotTreeFromNode(node::viralNode, depth::Real = -1)
-    
-#     while node.parent != nothing && depth != 0
-#         node = node.parent
-#         depth -= 1
-#     end
+# Examples
+```julia-repl
+julia>
+```
+"""
+function plotTreeFromNode(node::viralNode, depth::Real=-1; branchcolor=:black)
 
-#     fig = Figure()
-#     ax = Axis(fig[1, 1])
-#     hidedecorations!(ax)
-#     hidespines!(ax)
-#     treeplot!(node, tipfontsize = 14)
-#     display(fig)
+    while !isnothing(node.parent) && depth !== 0
+        node = node.parent
+        depth -= 1
+    end
 
-#     return fig
-# end
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    hidedecorations!(ax)
+    hidespines!(ax)
+    tp = treeplot!(node, branchcolor=branchcolor)
+    display(fig)
+
+    return fig, ax, tp
+end
+
+nleaves(n) = isempty(n.children) ? 1 : sum(nleaves, n.children)
+
+function ladderize!(n; rev=false)
+    foreach(c -> ladderize!(c; rev), n.children)
+    sort!(n.children, by=nleaves, rev=rev)
+    return n
+end

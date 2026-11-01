@@ -6,3 +6,4 @@
 *.err
 *.txt
 simulations/1D/*
+.vscode*
