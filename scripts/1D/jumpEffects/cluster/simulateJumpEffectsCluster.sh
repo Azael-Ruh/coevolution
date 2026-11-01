@@ -19,6 +19,20 @@ LINES_PER_JOB=$(( TOTAL_LINES / NJOBS))
 START=$(( SLURM_ARRAY_TASK_ID * LINES_PER_JOB ))
 END=$(( START + LINES_PER_JOB ))
 
+# JULIA ENV INFO:
+echo "HOST: $(hostname)"
+echo "JULIA: $(which julia)"
+julia --version
+echo "JULIA_PROJECT=$JULIA_PROJECT"
+
+julia -e '
+using Pkg
+println("active project: ", Base.active_project())
+println("DEPOT_PATH: ", DEPOT_PATH)
+println("LOAD_PATH: ", LOAD_PATH)
+Pkg.status()
+'
+
 # ---- RUN THE ASSIGNED LINES ----
 i=0
 while IFS= read -r line; do

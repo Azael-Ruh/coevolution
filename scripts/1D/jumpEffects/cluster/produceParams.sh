@@ -2,13 +2,13 @@
 # 0.2 \"Normal(0, 2)\" 100000 500"
 r=40
 R0=1.2
-muVect=(0.14 0.16 0.18 0.20 0.22 0.24 0.26 0.28 0.30 0.32 0.34 0.36 0.38 0.40)
+muVect=(0.14 0.15 0.16 0.17 0.18 0.19 0.20 0.21 0.22 0.23 0.24 0.25 0.26 0.27 0.28 0.29 0.30 0.31 0.32 0.33 0.34 0.35 0.36 0.37 0.38 0.39 0.40)
 nonLocalMutProb="1e-6"
-nonLocalJumpVect=(0 10 20 30 40 45 50 55 60 65 70 80 90 100)
+nonLocalJumpVect=(0 10 20 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100)
 localKernel="Normal(0,1)"
 Nh=100000000
 tmax=1000
-totalRuns=200
+totalRuns=400
 
 printf "" > /home/zayas-orihuela/coevolution/scripts/1D/jumpEffects/cluster/params.txt
 
@@ -23,4 +23,4 @@ do
     done
 done
 
-echo "produced $i different combinations"
+echo "produced $i different combinations $totalRuns times each"

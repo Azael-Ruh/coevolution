@@ -50,12 +50,9 @@ for cycle in 1:nCycles
         end
     end
 
-    if extinctionFlag
-        push!(extinctionTimes, t)
-        getInitialDistribution!(vi2D, mParams, sampDists)
-    else
+    extinctionFlag ?
+        getInitialDistribution!(vi2D, mParams, sampDists) :
         isolateBestSpeciesBack2Origin!(vi2D, mParams)
-    end
     
     global sampDists = sampledResults()
     sampleDistributionsNSpecies!(vi2D, sampDists, mParams)
