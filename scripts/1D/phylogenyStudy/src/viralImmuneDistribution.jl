@@ -274,7 +274,7 @@ julia>
 """
 function getMutationDisplacements(mutationKernel::piecewiseKernel, N::Integer)::Tuple{Vector{<:Real},Bool}
     nNonLocal = rand(Binomial(N, mutationKernel.nonLocalMutProb))
-    return [Distributions.rand!(localKernel, zeros(N - nNonLocal)); mutationKernel.nonLocalJump .* ones(nNonLocal)], nNonLocal > 0
+    return [Distributions.rand!(mutationKernel.localKernel, zeros(N - nNonLocal)); mutationKernel.nonLocalJump .* ones(nNonLocal)], nNonLocal > 0
 end
 
 """

@@ -55,7 +55,7 @@ mParams = modelParams(r, R0, Nh, mu, mutationKernel)
 
 tmax = 400
 dt = 0.1
-dtNodeSampling = 0.5
+dtNodeSampling = 1
 dtDistSampling = 4
 Nsampling = 1
 simSetNode = simulationConfig(tmax, dt, dtNodeSampling)
