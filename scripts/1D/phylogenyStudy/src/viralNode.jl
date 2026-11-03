@@ -1,3 +1,5 @@
+using StatsBase
+
 mutable struct viralNode
     birthTime::Real
     position::Real
@@ -157,10 +159,6 @@ julia>
 """
 function getMRCAtime(node1::viralNode, node2::viralNode)::Real
 
-    # if !isempty(node1.children) || !isempty(node2.children)
-    #     throw(ArgumentError("One of the given nodes is not a leaf!"))
-    # end
-
     tPresent = max(node1.birthTime, node2.birthTime)
 
     #TODO: think about this when all nodes have same times!
@@ -244,9 +242,9 @@ function getSampledTreeFromNode(node::viralNode, parentNode::Union{viralNode,Not
     return newAnchorNode
 end
 
-# =======================================================================
+## ======================================================================
 #                           Plotting tools
-# =======================================================================
+#  ======================================================================
 
 using BasicTreePlots, AbstractTrees, CairoMakie
 
@@ -301,3 +299,22 @@ function ladderize!(n; rev=false)
     sort!(n.children, by=nleaves, rev=rev)
     return n
 end
+
+
+## =======================================
+#       Tree dissimilarity indexes
+#  =======================================
+
+choose(N, n) = factorial(N) / (factorial(N-n) * factorial(n))
+
+colessIndexBinaryTree(node::viralNode) = isempty(node.children) ? 0 : abs(nleaves(first(node.children)) - nleaves(last(node.children))) + sum(colessIndexBinaryTree, node.children)
+
+normalisedColessBinaryIndex(node::viralNode) = colessIndexBinaryTree(node) / choose(nleaves(node) - 1, 2)
+
+degree(node::viralNode) = length(node.children)
+fFunction(n::Int) = log(n + ℯ)
+deltaf(node::viralNode) = isempty(node.children) ? fFunction(0) : fFunction(degree(node)) + sum(deltaf, node.children)
+MDM(x::Vector{<:Real}) = mean(abs.(x .- median(x)))
+
+CollessLikeLogMDM(node::viralNode) = isempty(node.children) ? 0 : MDM(deltaf.(node.children)) + sum(CollessLikeLogMDM, node.children)
+normalisedCollessLikeLogMDM(node::viralNode) = CollessLikeLogMDM(node) / ((fFunction(0) + fFunction(2)) * (nleaves(node)-1) * (nleaves(node)-2) / 4)

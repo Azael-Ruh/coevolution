@@ -94,9 +94,9 @@ display(sc)
 
 fullSampledTree = getFullSampledTreeCopy(viDist.viralPop::viralPopulation);
 ladderize!(fullSampledTree)
-cfull = [node.fitness for node in PreOrderDFS(fullSampledTree)]
+cfull = [normalisedCollessLikeLogMDM(node) for node in PreOrderDFS(fullSampledTree)]
 fig, ax, tp = plotTreeFromNode(fullSampledTree; branchcolor=cfull)
-Colorbar(fig[1, 2], limits=extrema(cfull), colormap=:viridis, label="Fitness at birth")
+Colorbar(fig[1, 2], limits=extrema(cfull), colormap=:viridis, label="Normalised Colless-like index")
 pts = [tp.nodepoints[][n] for n in PreOrderDFS(fullSampledTree) if BasicTreePlots.isleaf(n)]
 cleaves = [node.divergenceFromRoot for node in PreOrderDFS(fullSampledTree) if BasicTreePlots.isleaf(node)]
 CairoMakie.scatter!(pts, markersize=4, color=cleaves, colorrange=extrema(cleaves), colormap=:inferno)

@@ -7,7 +7,7 @@ s = log(R0)/r
 mutationRate = 0.2
 nonLocalMutProb = 1e-6
 nonLocalJumpVect = [0, 10, 20, 30, 40, 50, 60, 70]
-localKernel = Normal(0,1)
+localKernel = Normal(0, 1)
 mutationScale = std(localKernel)*(1-nonLocalMutProb)
 D = mutationRate * mutationScale^2 / 2
 
@@ -80,4 +80,4 @@ for i in eachindex(nonLocalJumpVect)
 end
 
 plotConfig()
-scatter(nonLocalJumpVect, vModVect, xlabel = raw"$\Delta$", ylabel = raw"$\Delta v$")
+scatter(nonLocalJumpVect, vModVect, xlabel=raw"$\Delta$", ylabel=raw"$\Delta v$")

@@ -1,7 +1,7 @@
 using SpecialFunctions, Plots
 include("../../../../code/simulate/coevolution1DSimulationTools.jl")
 
-function simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, tmax, dt, dtSampling, dtSamplingDistribution, x0, M0, initialCond; dx = 1)
+function simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, tmax, dt, dtSampling, dtSamplingDistribution, x0, M0, initialCond; dx=1)
 
     maxIdx = length(x)
 
@@ -14,7 +14,7 @@ function simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, 
     if r == 0
         Hkernel = [1]
     else
-        Hkernel = H(-5*ceil(r):5*ceil(r))
+        Hkernel = H((-5*ceil(r)):(5*ceil(r)))
     end
     HkernelHalfLength::Int = floor(length(Hkernel)/2)
 
@@ -27,38 +27,38 @@ function simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, 
     m0 = round.(Int, M0 .* initialCond(x, x0))
 
     m = Array{Int64}(undef, length(tSamplingDistribution), length(x))
-    m[1,:] = m0
+    m[1, :] = m0
     M = Vector{Int64}(undef, length(tSampling))
     M[1] = sum(m0)
     xm = Vector{Float64}(undef, length(tSampling))
     xm[1] = sum(x .* m0) ./ M[1]
     varm = Vector{Float64}(undef, length(tSampling))
-    varm[1] = sum(x.^2 .* m0) ./ M[1] - xm[1].^2
+    varm[1] = sum(x .^ 2 .* m0) ./ M[1] - xm[1] .^ 2
     m3 = Vector{Float64}(undef, length(tSampling))
-    m3[1] = sum((x .- xm[1]).^3 .* m0) ./ M[1]
+    m3[1] = sum((x .- xm[1]) .^ 3 .* m0) ./ M[1]
     parameters = (v, D, s, dx)
     hm = Vector{Float64}(undef, length(tSampling))
     hm[1] = 0
     cm = Vector{Float64}(undef, length(tSampling))
     cm[1] = 0
     fm = Vector{Float64}(undef, length(tSampling))
-    fm[1] = s.*x0
+    fm[1] = s .* x0
 
     mLoc::Vector{Int64} = m0
     hLoc = zero(mLoc)
     mutantExtinct = false
     tExtinct = NaN
-    for i in 1:length(t)-1
+    for i in 1:(length(t)-1)
 
         # Growth and death
-        RLoc = 1 .+ s.*(x .- v.*t[i] )
+        RLoc = 1 .+ s .* (x .- v .* t[i])
         mGrowth = rand.(Poisson.(RLoc .* mLoc .* dt))
         mDeath = rand.(Poisson.(mLoc .* dt)) # rand.(Binomial.(nxLoc, 1 - exp(-dt)))
         mLoc = max.(mLoc .+ mGrowth .- mDeath, 0)
-            
+
         # Immune evolution
         hLoc = hLoc + mLoc .* dt # ???
-        c = conv(hLoc, Hkernel)[HkernelHalfLength + 1: end - HkernelHalfLength]
+        c = conv(hLoc, Hkernel)[(HkernelHalfLength+1):(end-HkernelHalfLength)]
         f = (s .* (x .- v .* t[i]) .+ 1) .* exp.(-c ./ Nh) .- 1
 
         mutantExtinct = iszero(mLoc)
@@ -72,13 +72,13 @@ function simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, 
 
             idxXm = findfirst(x .> xm[idx])
             alpha = (x[idxXm] - xm[idx])/dx
-            hm[idx:end] .= hLoc[idxXm - 1]*alpha + hLoc[idxXm]*(1-alpha)
-            cm[idx:end] .= c[idxXm - 1]*alpha + c[idxXm]*(1-alpha)
-            fm[idx:end] .= f[idxXm - 1]*alpha + f[idxXm]*(1-alpha)
-            
+            hm[idx:end] .= hLoc[idxXm-1]*alpha + hLoc[idxXm]*(1-alpha)
+            cm[idx:end] .= c[idxXm-1]*alpha + c[idxXm]*(1-alpha)
+            fm[idx:end] .= f[idxXm-1]*alpha + f[idxXm]*(1-alpha)
+
             idx = ceil(Int, i / idxSamplingDistribution) + 1
             m[idx:length(tSamplingDistribution), :] .= 0
-            
+
             println("Mutant extinct")
             break
         end
@@ -86,7 +86,7 @@ function simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, 
         # Mutations
         mMutated = sparsevec(rand.(Binomial.(mLoc, 1 - exp(-mutationRate*dt)))) # 96.2 μs
         mutationDisplacements = getDisplacement.(iszero(mMutated) ? [(0, 0)] : tuple.(mMutated.nzind, mMutated.nzval), mutationKernel) # 267.5 μs (~10 mut per x), 511.135 μs (~100 mut per x), 32.847 ms (~ 1000 mut per x)
-        mJump = displacementToJump.(mutationDisplacements, maxIdx, dx = dx) # 4.643 ms
+        mJump = displacementToJump.(mutationDisplacements, maxIdx, dx=dx) # 4.643 ms
         mLoc = mLoc - Array(mMutated) + Array(sum(mJump)) # Move mutated viruses
 
         if ((i+1) % idxSampling == 1)
@@ -94,14 +94,14 @@ function simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, 
             idx::Int = (i / idxSampling) + 1
             M[idx] = sum(mLoc)
             xm[idx] = sum(x .* mLoc) ./ M[idx]
-            varm[idx] = sum(x.^2 .* mLoc) ./ M[idx] - xm[idx].^2
-            m3[idx] = sum((x .- xm[idx]).^3 .* mLoc) ./ M[idx]
+            varm[idx] = sum(x .^ 2 .* mLoc) ./ M[idx] - xm[idx] .^ 2
+            m3[idx] = sum((x .- xm[idx]) .^ 3 .* mLoc) ./ M[idx]
 
             idxXm = findfirst(x .> xm[idx])
             alpha = (x[idxXm] - xm[idx])/dx
-            hm[idx] = hLoc[idxXm - 1]*alpha + hLoc[idxXm]*(1-alpha)
-            cm[idx] = c[idxXm - 1]*alpha + c[idxXm]*(1-alpha)
-            fm[idx] = f[idxXm - 1]*alpha + f[idxXm]*(1-alpha)
+            hm[idx] = hLoc[idxXm-1]*alpha + hLoc[idxXm]*(1-alpha)
+            cm[idx] = c[idxXm-1]*alpha + c[idxXm]*(1-alpha)
+            fm[idx] = f[idxXm-1]*alpha + f[idxXm]*(1-alpha)
         end
         if ((i+1) % idxSamplingDistribution == 1)
             idx = Int(i / idxSamplingDistribution) + 1
@@ -133,8 +133,8 @@ dtSamplingDistribution = 1
 x0 = 60
 M0 = 1 # ceil(Int, 1/(x0*s))
 v0 = 10 # 2*D/(x0*s)
-gaussianCond(x,x0,var) = exp.(-(x.-x0).^2 ./ 2var) ./ sum(exp.(-(x.-x0).^2 ./ 2var))
-deltaCond(x,x0) = 1 .* (x .== x0)
+gaussianCond(x, x0, var) = exp.(-(x .- x0) .^ 2 ./ 2var) ./ sum(exp.(-(x .- x0) .^ 2 ./ 2var))
+deltaCond(x, x0) = 1 .* (x .== x0)
 initialCondition = deltaCond #(x,x0) -> gaussianCond(x, x0, v0)
 
 nRuns = 2000
@@ -153,7 +153,7 @@ tSampling = 0:dtSampling:tmax
 tSamplingDistribution = 0:dtSamplingDistribution:tmax
 for run in 1:nRuns
     println("Run $run started")
-    t, tSampling, MGrid[run, :], xmGrid[run,:], varmGrid[run,:], m3Grid[run,:], hm, cmGrid[run,:], fmGrid[run,:], tSamplingDistribution, mGrid[run, :, :], tExtinction[run] = simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, tmax, dt, dtSampling, dtSamplingDistribution, x0, M0, initialCondition, dx = dx)
+    t, tSampling, MGrid[run, :], xmGrid[run, :], varmGrid[run, :], m3Grid[run, :], hm, cmGrid[run, :], fmGrid[run, :], tSamplingDistribution, mGrid[run, :, :], tExtinction[run] = simulateStochasticMutant(v, r, s, Nh, mutationRate, mutationKernel, x, tmax, dt, dtSampling, dtSamplingDistribution, x0, M0, initialCondition, dx=dx)
     println("Run $run finished")
 end
 
@@ -181,63 +181,63 @@ end
 # # Plots for multiple run averaging 
 plotConfig()
 
-avVarm = sum([varmGrid[i,:] for i in 1:nRuns])./nRuns
-avm3 = sum([m3Grid[i,:] for i in 1:nRuns])./nRuns
-varCorrected = cumsum(sum([replace!(2D.*(1 .- 1 ./ MGrid[run, :]), -Inf=>0) for run in 1:nRuns]) ./ nRuns) .* dtSampling
-varCorrected2 = cumsum(sum([replace!(2D.*(1 .- 2 ./ MGrid[run, :]), -Inf=>0) for run in 1:nRuns]) ./ nRuns) .* dtSampling
-varCorrection = s.*cumsum(sum([replace!(m3Grid[run, :] .* (1 .- 1 ./ MGrid[run,:]), NaN=>0) for run in 1:nRuns]) ./ nRuns) .* dtSampling
+avVarm = sum([varmGrid[i, :] for i in 1:nRuns]) ./ nRuns
+avm3 = sum([m3Grid[i, :] for i in 1:nRuns]) ./ nRuns
+varCorrected = cumsum(sum([replace!(2D .* (1 .- 1 ./ MGrid[run, :]), -Inf=>0) for run in 1:nRuns]) ./ nRuns) .* dtSampling
+varCorrected2 = cumsum(sum([replace!(2D .* (1 .- 2 ./ MGrid[run, :]), -Inf=>0) for run in 1:nRuns]) ./ nRuns) .* dtSampling
+varCorrection = s .* cumsum(sum([replace!(m3Grid[run, :] .* (1 .- 1 ./ MGrid[run, :]), NaN=>0) for run in 1:nRuns]) ./ nRuns) .* dtSampling
 varCorrection2 = cumsum(sum([replace!(-2 .* varmGrid[run, :] ./ MGrid[run, :], NaN=>0) for run in 1:nRuns]) ./ nRuns) .* dtSampling
-avVarmSurvived = sum([varmGrid[i,:].*isnan(tExtinction[i]) for i in 1:nRuns])./sum(isnan.(tExtinction))
-varCorrectedSurvived = cumsum(sum([isnan(tExtinction[run]) .* replace!(2D.*(1 .- 1 ./ MGrid[run, :]), -Inf=>0) for run in 1:nRuns]) ./ sum(isnan.(tExtinction))) .* dtSampling
-varCorrectedSurvived2 = cumsum(sum([isnan(tExtinction[run]) .* replace!(2D.*(1 .- 1 ./ MGrid[run, :]), -Inf=>0) for run in 1:nRuns]) ./ sum(isnan.(tExtinction))) .* dtSampling
-varCorrectionSurvived = s.*cumsum(sum([isnan(tExtinction[run]) * replace!(m3Grid[run, :] .* (1 .- 1 ./ MGrid[run,:]), NaN=>0) for run in 1:nRuns]) ./ sum(isnan.(tExtinction))) .* dtSampling
+avVarmSurvived = sum([varmGrid[i, :] .* isnan(tExtinction[i]) for i in 1:nRuns]) ./ sum(isnan.(tExtinction))
+varCorrectedSurvived = cumsum(sum([isnan(tExtinction[run]) .* replace!(2D .* (1 .- 1 ./ MGrid[run, :]), -Inf=>0) for run in 1:nRuns]) ./ sum(isnan.(tExtinction))) .* dtSampling
+varCorrectedSurvived2 = cumsum(sum([isnan(tExtinction[run]) .* replace!(2D .* (1 .- 1 ./ MGrid[run, :]), -Inf=>0) for run in 1:nRuns]) ./ sum(isnan.(tExtinction))) .* dtSampling
+varCorrectionSurvived = s .* cumsum(sum([isnan(tExtinction[run]) * replace!(m3Grid[run, :] .* (1 .- 1 ./ MGrid[run, :]), NaN=>0) for run in 1:nRuns]) ./ sum(isnan.(tExtinction))) .* dtSampling
 varCorrectionSurvived2 = cumsum(sum([isnan(tExtinction[run]) .* replace!(-2 .* varmGrid[run, :] ./ MGrid[run, :], NaN=>0) for run in 1:nRuns]) ./ sum(isnan.(tExtinction))) .* dtSampling
-varp = plot(tSampling, varmGrid',  xlabel = raw"$t$", c = :gray, ylabel = raw"$\sigma_m^2(t)$", label = permutedims(["" for i in 1:nRuns]), alpha = 0.4)
-plot!(varp, tSampling, avVarm, colour = :black, label = "Simulation average", lw = 2)
-plot!(varp, tSampling, avVarm[1] .+ 2D.*tSampling, c = :coral, label = "Gaussian approximate solution", lw = 2)
+varp = plot(tSampling, varmGrid', xlabel=raw"$t$", c=:gray, ylabel=raw"$\sigma_m^2(t)$", label=permutedims(["" for i in 1:nRuns]), alpha=0.4)
+plot!(varp, tSampling, avVarm, colour=:black, label="Simulation average", lw=2)
+plot!(varp, tSampling, avVarm[1] .+ 2D .* tSampling, c=:coral, label="Gaussian approximate solution", lw=2)
 # plot!(varp, tSampling, varCorrected .- varCorrection, c = :steelblue, lw = 2, label = "Integrated equaton with stochastic and survival correction 1")
-plot!(varp, tSampling, varCorrected2 .+ varCorrection2, c = :turquoise, lw = 2, label = "Integrated equaton with stochastic and survival correction")
-plot!(tSampling, avVarmSurvived, c = :springgreen3, lw = 2, label = "Simulation survived")
-plot!(tSampling, varCorrectedSurvived2 .+ varCorrectionSurvived2, c = :violetred1, lw = 2, label = "Integrated equation for survived runs")
+plot!(varp, tSampling, varCorrected2 .+ varCorrection2, c=:turquoise, lw=2, label="Integrated equaton with stochastic and survival correction")
+plot!(tSampling, avVarmSurvived, c=:springgreen3, lw=2, label="Simulation survived")
+plot!(tSampling, varCorrectedSurvived2 .+ varCorrectionSurvived2, c=:violetred1, lw=2, label="Integrated equation for survived runs")
 
 # Position plots
-avPos = sum([xmGrid[i,:] for i in 1:nRuns])./nRuns
-xmTheo = x0 .+ s.*D.*tSampling.^2
-xmCorrection = -cumsum( s.* sum([replace!(varmGrid[run, :] ./ MGrid[run,:], NaN=> 0) for run in 1:nRuns] ./ nRuns)) .* dtSampling
-xp = plot(tSampling, xmGrid',  xlabel = raw"$t$", c = :gray, ylabel = raw"$\bar{x}_m(t)$", label = permutedims(["" for i in 1:nRuns]), alpha = 0.4)
-plot!(xp, tSampling, avPos, colour = :black, label = "Simulation average", lw = 2)
-plot!(xp, tSampling, x0 .+ s.*D.*tSampling.^2, c = :coral, label = "Gaussian approximate solution", lw = 2)
-plot!(xp, tSampling, x0 .+ s.*cumsum(avVarm).*dtSampling, c = :steelblue, label = raw"Integrated average variance", lw = 2)
-plot!(ylims = (59,62))
+avPos = sum([xmGrid[i, :] for i in 1:nRuns]) ./ nRuns
+xmTheo = x0 .+ s .* D .* tSampling .^ 2
+xmCorrection = -cumsum(s .* sum([replace!(varmGrid[run, :] ./ MGrid[run, :], NaN => 0) for run in 1:nRuns] ./ nRuns)) .* dtSampling
+xp = plot(tSampling, xmGrid', xlabel=raw"$t$", c=:gray, ylabel=raw"$\bar{x}_m(t)$", label=permutedims(["" for i in 1:nRuns]), alpha=0.4)
+plot!(xp, tSampling, avPos, colour=:black, label="Simulation average", lw=2)
+plot!(xp, tSampling, x0 .+ s .* D .* tSampling .^ 2, c=:coral, label="Gaussian approximate solution", lw=2)
+plot!(xp, tSampling, x0 .+ s .* cumsum(avVarm) .* dtSampling, c=:steelblue, label=raw"Integrated average variance", lw=2)
+plot!(ylims=(59, 62))
 
 # Size plots
-avM = sum([MGrid[i,:] for i in 1:nRuns])./nRuns
-Mtheo = M0 .* exp.(s.*(x0.*tSampling .- v.*tSampling.^2 ./ 2 .+ s.*D.*tSampling.^3 ./ 3))
-Mintegrated = M0 .+ cumsum(s.* (sum([xmGrid[run, :] .* MGrid[run, :] for run in 1:nRuns])./nRuns .- v.*tSampling.*avM)) .* dtSampling
-Mp = plot(tSampling, replace(MGrid, 0=>NaN)',  xlabel = raw"$t$", c = :gray, ylabel = raw"$M(t)$", yscale = :log10, label = permutedims(["" for i in 1:nRuns]), alpha = 0.4)
-plot!(tSampling, avM, c = :black, lw = 2, label = "Simulation average")
-plot!(tSampling, Mintegrated, c = :steelblue, lw = 2, label = "Integrated equation")
-plot!(tSampling, Mtheo, c = :coral, lw = 2, label = "Gaussian theory")
+avM = sum([MGrid[i, :] for i in 1:nRuns]) ./ nRuns
+Mtheo = M0 .* exp.(s .* (x0 .* tSampling .- v .* tSampling .^ 2 ./ 2 .+ s .* D .* tSampling .^ 3 ./ 3))
+Mintegrated = M0 .+ cumsum(s .* (sum([xmGrid[run, :] .* MGrid[run, :] for run in 1:nRuns]) ./ nRuns .- v .* tSampling .* avM)) .* dtSampling
+Mp = plot(tSampling, replace(MGrid, 0=>NaN)', xlabel=raw"$t$", c=:gray, ylabel=raw"$M(t)$", yscale=:log10, label=permutedims(["" for i in 1:nRuns]), alpha=0.4)
+plot!(tSampling, avM, c=:black, lw=2, label="Simulation average")
+plot!(tSampling, Mintegrated, c=:steelblue, lw=2, label="Integrated equation")
+plot!(tSampling, Mtheo, c=:coral, lw=2, label="Gaussian theory")
 
 # Average shape \equiv survival shape
-avm = sum([mGrid[i,:,:] for i in 1:nRuns])./nRuns
-avmtheo = Mtheo[end] .* exp.(-(x .- x0 .- s*D*tmax^2).^2 ./ (4*D*tmax)) ./ sqrt(4*pi*D*tmax) .* dx
-avmp = plot(x, avm[1:20:end,:]', label = "", xlabel = raw"$x$", ylabel = raw"$\langle m(x,t)\rangle$", palette = palette(:viridis, length(tSamplingDistribution[1:5:end])))
-plot!(avmp, x, avm[end,:], label = "Last average profile", c = :black, lw = 2)
-plot!(avmp, x, avmtheo, label = "Gaussian theoretical profile", c = :coral, lw = 2)
+avm = sum([mGrid[i, :, :] for i in 1:nRuns]) ./ nRuns
+avmtheo = Mtheo[end] .* exp.(-(x .- x0 .- s*D*tmax^2) .^ 2 ./ (4*D*tmax)) ./ sqrt(4*pi*D*tmax) .* dx
+avmp = plot(x, avm[1:20:end, :]', label="", xlabel=raw"$x$", ylabel=raw"$\langle m(x,t)\rangle$", palette=palette(:viridis, length(tSamplingDistribution[1:5:end])))
+plot!(avmp, x, avm[end, :], label="Last average profile", c=:black, lw=2)
+plot!(avmp, x, avmtheo, label="Gaussian theoretical profile", c=:coral, lw=2)
 
-avmSurvived = avmSurvived = sum([isnan(tExtinction[i]) .* mGrid[i,:,:] for i in 1:nRuns])./sum(isnan.(tExtinction))
-avmSurvivedp = plot(x, avmSurvived[1:5:end,:]', label = "", xlabel = raw"$x$", ylabel = raw"$\langle m(x,t)| \mathrm{Survival}\rangle$", palette = palette(:viridis, length(tSamplingDistribution[1:5:end])))
-plot!(avmSurvivedp, x, avmSurvived[end,:], label = "Last average profile", c = :black, lw = 2)
-plot!(avmSurvivedp, x, avmtheo ./ (sum(isnan.(tExtinction)) / nRuns), label = raw"Theoretical result over $\mathbb{P}_\mathrm{s}$", c = :coral, lw = 2)
+avmSurvived = sum([isnan(tExtinction[i]) .* mGrid[i, :, :] for i in 1:nRuns]) ./ sum(isnan.(tExtinction))
+avmSurvivedp = plot(x, avmSurvived[1:5:end, :]', label="", xlabel=raw"$x$", ylabel=raw"$\langle m(x,t)| \mathrm{Survival}\rangle$", palette=palette(:viridis, length(tSamplingDistribution[1:5:end])))
+plot!(avmSurvivedp, x, avmSurvived[end, :], label="Last average profile", c=:black, lw=2)
+plot!(avmSurvivedp, x, avmtheo ./ (sum(isnan.(tExtinction)) / nRuns), label=raw"Theoretical result over $\mathbb{P}_\mathrm{s}$", c=:coral, lw=2)
 
 # Coverage plot
-plot(tSampling, replace(cmGrid,0=>NaN)',  xlabel = raw"$t$", c = :gray, ylabel = raw"$c(\bar{x}_m(t),t)$", label = permutedims(["" for i in 1:nRuns]), alpha = 0.4, yscale = :log10)
-plot!(tSampling, s.*(x0 .- v.*tSampling).*Nh, ls = :dash, c = :black, lw = 1, label = "Immunity kickoff")
-plot!(tSampling[2:end], sum([cmGrid[run,:] for run in 1:nRuns])[2:end]./nRuns, c = :black, lw =2, label = "Simulation average")
-plot!(tSampling, avM ./ (s.*(x0 .- v.*tSampling)), c = :steelblue, lw = 2, label = "Theoretical coverage")
-plot!(tSampling, Mtheo ./ (s.*(x0 .- v.*tSampling)), c = :coral, lw = 2, label = "Gaussian theory")
-plot!(legend_position = :bottomright)
+plot(tSampling, replace(cmGrid, 0=>NaN)', xlabel=raw"$t$", c=:gray, ylabel=raw"$c(\bar{x}_m(t),t)$", label=permutedims(["" for i in 1:nRuns]), alpha=0.4, yscale=:log10)
+plot!(tSampling, s .* (x0 .- v .* tSampling) .* Nh, ls=:dash, c=:black, lw=1, label="Immunity kickoff")
+plot!(tSampling[2:end], sum([cmGrid[run, :] for run in 1:nRuns])[2:end] ./ nRuns, c=:black, lw=2, label="Simulation average")
+plot!(tSampling, avM ./ (s .* (x0 .- v .* tSampling)), c=:steelblue, lw=2, label="Theoretical coverage")
+plot!(tSampling, Mtheo ./ (s .* (x0 .- v .* tSampling)), c=:coral, lw=2, label="Gaussian theory")
+plot!(legend_position=:bottomright)
 
 # # Immunity kickoff
 
