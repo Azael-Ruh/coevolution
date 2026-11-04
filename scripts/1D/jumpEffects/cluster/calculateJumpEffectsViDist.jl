@@ -45,14 +45,14 @@ function getMacroscopicAndExtinction(x, mParams, simSet)
     return sampMacro, survivalFlag
 end
 
-r = 50
-R0 = 1.45
-Nh::Int = 3e7
-mu = 0.2
-mutationKernel = Normal(0, 1)
+r = parse(Int, ARGS[1])
+R0 = parse(Float64, ARGS[2])
+Nh::Int = parse(Int, ARGS[6])
+mu = parse(Float64, ARGS[3])
+mutationKernel = eval(Meta.parse(ARGS[5]))
 mParams = modelParams(r, R0, Nh, mu, mutationKernel)
 
-tmax = 3000
+tmax = 6000
 dt = 0.02
 dtSampling = 1
 simSet = simulationConfig(tmax, dt, dtSampling)
@@ -71,15 +71,15 @@ println("Found average size  NAv  = $NAv")
 println("Found average tip   uTAv = $uTAv")
 println("=================================================")
 
-mutationKernel = piecewiseKernel(1e-6, 60, Normal(0, 1))
+mutationKernel = eval(Meta.parse(ARGS[4]))
 mParams = modelParams(r, R0, Nh, mu, mutationKernel)
 
-tmax = 1000
+tmax = parse(Float64, ARGS[7])
 tTransient = 100
 idxTransient = round(Int, tTransient ./ dtSampling) + 1
 simSet = simulationConfig(tmax, dt, dtSampling)
 
-totalRuns = 10
+totalRuns = parse(Int, ARGS[8])
 println("=============================================")
 println("Starting jumpy simulation for Delta = $(mutationKernel.nonLocalJump)")
 println(".\n.\n.\n.\n.\n.")
@@ -110,9 +110,9 @@ if survivedRuns > 0
     NMod = NMod / survivedRuns
     println("Speed before = $vAv, new speed = $vMod, size before = $NAv, new size = $NMod, calculated through $survivedRuns survived simulations.")
 
-    # saveDir = expanduser("~/coevolution/simulations/jumpEffects")
-    # saveFile = "jumpEffects_r$(r)R0$(R0)D$(round(D, sigdigits = 2))tmax$(tmax)totalRuns$(totalRuns)Delta$(mutationKernel.nonLocalJump).jld2"
-    # jldsave(joinpath(saveDir, saveFile); vMod, NMod, survivedRuns, nRuns)
+    saveDir = expanduser("~/coevolution/simulations/jumpEffects")
+    saveFile = "jumpEffects_r$(r)R0$(R0)D$(round(mParams.D, sigdigits = 2))tmax$(tmax)totalRuns$(totalRuns)Delta$(mutationKernel.nonLocalJump).jld2"
+    jldsave(joinpath(saveDir, saveFile); vMod, NMod, survivedRuns, nRuns)
 else
     println("ERROR: No survived runs found :(")
 end

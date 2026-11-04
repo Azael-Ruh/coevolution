@@ -3,18 +3,18 @@
 #SBATCH --output=slurm.%A_%a.out
 #SBATCH --error=slurm.%A_%a.err
 
-#SBATCH --array=0-48        # 10 jobs
+#SBATCH --array=0-161        # 162 jobs
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=2GB
-#SBATCH -t 0-48:00
+#SBATCH --mem=5GB
+#SBATCH -t 0-72:00
 
 # ---- CONFIG ----
 SECONDS=0
-MUSIZE=14
-DELTASIZE=14
+MUSIZE=27
+DELTASIZE=18
 TOTAL_LINES=$(( MUSIZE * DELTASIZE))
-NJOBS=49
+NJOBS=162
 LINES_PER_JOB=$(( TOTAL_LINES / NJOBS))
 START=$(( SLURM_ARRAY_TASK_ID * LINES_PER_JOB ))
 END=$(( START + LINES_PER_JOB ))
@@ -43,7 +43,7 @@ while IFS= read -r line; do
         echo "Job $SLURM_ARRAY_TASK_ID running parameters: r=$r, R0=$R0, mu=$mu, mutKernel=$mutKernel, localKernel=$localKernel Nh=$Nh, tmax=$tmax, nRuns=$totalRuns"
 
         # Run the simulation
-        julia ~/coevolution/scripts/1D/jumpEffects/cluster/calculateJumpEffectsCluster.jl \
+        ~/.juliaup/bin/julia ~/coevolution/scripts/1D/jumpEffects/cluster/calculateJumpEffectsViDist.jl \
               "$r" "$R0" "$mu" "$mutKernel" "$localKernel" "$Nh" "$tmax" "$totalRuns"
     fi
     ((i++))

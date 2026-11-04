@@ -17,7 +17,7 @@ for nonLocalJump in "${nonLocalJumpVect[@]}"
 do 
     for mu in "${muVect[@]}"
     do
-        mutKernel="piecewiseKernel(\"piecewise\",$nonLocalMutProb,$nonLocalJump,$localKernel)"
+        mutKernel="piecewiseKernel($nonLocalMutProb,$nonLocalJump,$localKernel)" #WARNING: Careful of the definition depending on the script!
         printf "%s\n" "$r $R0 $mu $mutKernel $localKernel $Nh $tmax $totalRuns" >> /home/zayas-orihuela/coevolution/scripts/1D/jumpEffects/cluster/params.txt
         ((i++))
     done
