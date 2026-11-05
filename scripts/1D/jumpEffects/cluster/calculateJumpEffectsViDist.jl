@@ -1,4 +1,5 @@
 include("../src/viralImmuneDistribution.jl")
+using JLD2
 
 function getSimulatedMacroscopicObservables(x, mParams, simSet)
 
@@ -111,7 +112,7 @@ if survivedRuns > 0
     println("Speed before = $vAv, new speed = $vMod, size before = $NAv, new size = $NMod, calculated through $survivedRuns survived simulations.")
 
     saveDir = expanduser("~/coevolution/simulations/jumpEffects")
-    saveFile = "jumpEffects_r$(r)R0$(R0)D$(round(mParams.D, sigdigits = 2))tmax$(tmax)totalRuns$(totalRuns)Delta$(mutationKernel.nonLocalJump).jld2"
+    saveFile = "jumpEffects_r$(r)R0$(R0)mu$(mu)tmax$(tmax)totalRuns$(totalRuns)Delta$(mutationKernel.nonLocalJump).jld2"
     jldsave(joinpath(saveDir, saveFile); vMod, NMod, survivedRuns, nRuns)
 else
     println("ERROR: No survived runs found :(")

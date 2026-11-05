@@ -31,8 +31,9 @@ for i in eachindex(nonLocalJumpVect), j in eachindex(mutationRateVect)
     mutationKernel = piecewiseKernel("piecewise",nonLocalMutProb, nonLocalJumpVect[i], localKernel)
     mutationScale = std(mutationKernel)
     D = mutationRateVect[j] * mutationScale^2 / 2
+    mu = mutationRateVect[j]
 
-    saveFile = "jumpEffects_r$(r)R0$(R0)D$(round(D, sigdigits = 2))tmax$(tmax)totalRuns$(totalRuns)Delta$(mutationKernel.nonLocalJump).jld2"
+    saveFile = "jumpEffects_r$(r)R0$(R0)mu$(mu)tmax$(tmax)totalRuns$(totalRuns)Delta$(mutationKernel.nonLocalJump).jld2" #CAREFUL: changed nomenclature
     filePath = joinpath(saveDir, saveFile)
     if isfile(filePath)
         vars = load(filePath)
@@ -64,3 +65,4 @@ savefig(pHeatmapSurvProb, joinpath(figDir, "survivalProbHeatmap_r$(r)R0$(R0)tmax
 
 jldsave(joinpath(saveDir, "jumpEffectsSpeed_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).jld2"); mutationRateVect, nonLocalJumpVect, newVMat)
 jldsave(joinpath(saveDir, "jumpEffectsSize_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).jld2"); mutationRateVect, nonLocalJumpVect, newNMat)
+jldsave(joinpath(saveDir, "jumpEffectsSProb_r$(r)R0$(R0)tmax$(tmax)totalRuns$(totalRuns).jld2"); mutationRateVect, nonLocalJumpVect, survivalProb)
