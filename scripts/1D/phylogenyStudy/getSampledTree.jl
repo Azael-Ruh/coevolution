@@ -94,17 +94,21 @@ display(sc)
 
 fullSampledTree = getFullSampledTreeCopy(viDist.viralPop::viralPopulation);
 ladderize!(fullSampledTree)
-cfull = [normalisedCollessLikeLogMDM(node) for node in PreOrderDFS(fullSampledTree)]
+cfull = getAllNormalisedCollessLike(fullSampledTree, logfFunction, MDM, LogMDMnormalisation)
+nleavesFull = [nleaves(node) for node in PreOrderDFS(fullSampledTree)]
+cfull[nleavesFull .<= 3] .= 0
 fig, ax, tp = plotTreeFromNode(fullSampledTree; branchcolor=cfull)
 Colorbar(fig[1, 2], limits=extrema(cfull), colormap=:viridis, label="Normalised Colless-like index")
-pts = [tp.nodepoints[][n] for n in PreOrderDFS(fullSampledTree) if BasicTreePlots.isleaf(n)]
-cleaves = [node.divergenceFromRoot for node in PreOrderDFS(fullSampledTree) if BasicTreePlots.isleaf(node)]
-CairoMakie.scatter!(pts, markersize=4, color=cleaves, colorrange=extrema(cleaves), colormap=:inferno)
-Colorbar(fig[1, 3], limits=extrema(cleaves), colormap=:inferno, label="Divergence from root")
+# pts = [tp.nodepoints[][n] for n in PreOrderDFS(fullSampledTree) if BasicTreePlots.isleaf(n)]
+# cleaves = [node.divergenceFromRoot for node in PreOrderDFS(fullSampledTree) if BasicTreePlots.isleaf(node)]
+# CairoMakie.scatter!(pts, markersize=4, color=cleaves, colorrange=extrema(cleaves), colormap=:inferno)
+# Colorbar(fig[1, 3], limits=extrema(cleaves), colormap=:inferno, label="Divergence from root")
 display(fig)
 
-MRCAtimes = getMRCAtimes(sampledNodes)
-normalisedHist = normalize(fit(Histogram, MRCAtimes))
-edges = normalisedHist.edges[1]
-weights = normalisedHist.weights
-Plots.plot([edges[1]; edges; edges[end]], [0; weights; last(weights); 0], xlabel=raw"$T_2$", ylabel=raw"$\mathbb{P}(T_2)$", lw=2, seriestype=:steppost)
+
+
+# MRCAtimes = getMRCAtimes(sampledNodes)
+# normalisedHist = normalize(fit(Histogram, MRCAtimes))
+# edges = normalisedHist.edges[1]
+# weights = normalisedHist.weights
+# Plots.plot([edges[1]; edges; edges[end]], [0; weights; last(weights); 0], xlabel=raw"$T_2$", ylabel=raw"$\mathbb{P}(T_2)$", lw=2, seriestype=:steppost)

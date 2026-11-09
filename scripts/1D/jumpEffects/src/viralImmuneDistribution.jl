@@ -420,7 +420,7 @@ function getInitialDistribution!(viDist::viralImmuneDistribution, mParams::model
     x = viDist.space
 
     nx0 = round.(Int, N0 .* gaussianCond.(x, sigma0))
-    hx0 = round.(Int, H0 .* (1 .+ erf.(.-x ./ sqrt(2*sigma0^2))) .* (x .> -5mParams.r) ./ 2)
+    hx0 = round.(Int, H0 .* (1 .+ erf.(.-x ./ sqrt(2*sigma0^2))) .* (x .> -mParams.HkernelHalfLength) ./ 2)
 
     viDist.nx = nx0
     viDist.hx = hx0
@@ -479,13 +479,14 @@ function translateDistributionBackLeft!(viDist::viralImmuneDistribution, mParams
     idxWave = findall(viDist.nx .> 0)
     firstIdx = mParams.HkernelHalfLength
     deltaIdx = first(idxWave) - firstIdx
+    deltaIdx > 0 || deltaIdx = firstIdx
     newIdx = idxWave .- deltaIdx
 
     newNx = zero(viDist.nx)
     newNx[newIdx] = viDist.nx[idxWave]
 
     newHx = zero(viDist.hx)
-    newHx[1:last(newIdx)] = viDist.hx[(deltaIdx+1):last(idxWave)]
+    newHx[1:last(newIdx)] = viDist.hx[deltaIdx:last(idxWave)]
 
     newSpace = viDist.space .+ deltaIdx
 

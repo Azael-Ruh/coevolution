@@ -1,14 +1,14 @@
 include("../../code/simulate/coevolution1DSimulationTools.jl")
 # using FFTW
 
-r = 10
+r = 40
 R0 = 1.2
-mutationRate = 0.14
-xmax::Int64 = 1000
+mutationRate = 0.35
+xmax::Int64 = 3000
 Nh::Int64 = 1e8
 
-nonLocalJump = 40
-nonLocalMutProb = 2e-7
+nonLocalJump = 80
+nonLocalMutProb = 1e-6
 localKernel = Normal(0, 1)
 mutationKernel = piecewiseKernel("piecewise", nonLocalMutProb, nonLocalJump, localKernel)
 
@@ -25,8 +25,8 @@ Nt = vec(sum(nx, dims=2))
 
 p = plotSimulationSummary(nx, hx, xmax, r, R0, dtSampling=dtSampling)
 display(p)
-q = plotWaveShape(nx, hx, xmax, r, R0, Nh)
-g = animateSimulation(nx, hx, x, Nh)
+# q = plotWaveShape(nx, hx, xmax, r, R0, Nh)
+# g = animateSimulation(nx, hx, x, Nh)
 # g = animateSimulationLog(nx, hx, x, Nh)
 
 # autop = plot(autocor(Nt, 0:floor(Int,length(Nt)/2)), ylabel = raw"$\langle N(t)N(t+\tau)\rangle$", xlabel = raw"$\tau$", title = "Normalised autocorrelation for R0 = $R0, r = $r")

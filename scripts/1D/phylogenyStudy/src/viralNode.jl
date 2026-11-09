@@ -264,6 +264,8 @@ function label(node::viralNode)::String
     return "$(round(Int, node.divergenceFromRoot))"
 end
 
+isleaf(node::viralNode) = isempty(children(node))
+
 
 """
     plotTreeFromNode(node::viralNode)
@@ -312,9 +314,40 @@ colessIndexBinaryTree(node::viralNode) = isempty(node.children) ? 0 : abs(nleave
 normalisedColessBinaryIndex(node::viralNode) = colessIndexBinaryTree(node) / choose(nleaves(node) - 1, 2)
 
 degree(node::viralNode) = length(node.children)
-fFunction(n::Int) = log(n + ℯ)
-deltaf(node::viralNode) = isempty(node.children) ? fFunction(0) : fFunction(degree(node)) + sum(deltaf, node.children)
+logfFunction(n::Int) = n == 1 ? 0 : log(n + ℯ)
+leavesfFunction(n::Int) = n == 0 ? 1 : 0
+deltaf(node::viralNode) = isempty(node.children) ? logfFunction(0) : fFunction(degree(node)) + sum(deltaf, node.children)
 MDM(x::Vector{<:Real}) = mean(abs.(x .- median(x)))
 
 CollessLikeLogMDM(node::viralNode) = isempty(node.children) ? 0 : MDM(deltaf.(node.children)) + sum(CollessLikeLogMDM, node.children)
-normalisedCollessLikeLogMDM(node::viralNode) = CollessLikeLogMDM(node) / ((fFunction(0) + fFunction(2)) * (nleaves(node)-1) * (nleaves(node)-2) / 4)
+normalisedCollessLikeLogMDM(node::viralNode) = CollessLikeLogMDM(node) / LogMDMnormalisation(nleaves(node))
+LogMDMnormalisation(n) = n <= 2 ? 1 : (logfFunction(0) + logfFunction(2)) * (n-1) * (n-2) / 4
+logNleavesNormalisation(n) = n <= 2 ? 1 : (n-1) * (n-2) / 4
+
+function getAllNormalisedCollessLike(node::viralNode, deltaFunction::Function, divergence::Function, normalisation::Function)::Vector{Float64}
+    collessLikePreDFT, = getAllCollessLike(node, deltaFunction, divergence)
+
+    leavesPreDFT = [nleaves(el) for el in PreOrderDFS(node)]
+    normalisationPreDFT = normalisation.(leavesPreDFT)
+
+    return collessLikePreDFT ./ normalisationPreDFT
+end
+
+function getAllCollessLike(node::viralNode, fFunction::Function, divergence::Function)
+
+    isleaf(node) && return [0], [fFunction(0)]
+
+    resultingVector = getAllCollessLike.(node.children, fFunction, divergence)
+    colessLikeVector, deltafVector = first.(resultingVector), last.(resultingVector)
+
+    colessLikeNode = divergence(first.(deltafVector)) + sum(first.(colessLikeVector))
+    deltafNode = fFunction(degree(node)) + sum(first.(deltafVector))
+
+    return append!([colessLikeNode], colessLikeVector...), append!([deltafNode], deltafVector...)
+end
+
+function getDeltafVector(node::viralNode)
+    isleaf(node) && return [logfFunction(0)]
+    deltafVector = getDeltafVector.(node.children)
+    append!([fFunction(degree(node)) + sum(first.(deltafVector))], deltafVector...)
+end
