@@ -479,14 +479,25 @@ function translateDistributionBackLeft!(viDist::viralImmuneDistribution, mParams
     idxWave = findall(viDist.nx .> 0)
     firstIdx = mParams.HkernelHalfLength
     deltaIdx = first(idxWave) - firstIdx
-    deltaIdx > 0 || deltaIdx = firstIdx
-    newIdx = idxWave .- deltaIdx
+
+    if deltaIdx > 0
+        newIdx = idxWave .- deltaIdx
+    elseif maximum(idxWave) > 2*firstIdx
+        deltaIdx = firstIdx
+        newIdx = idxWave .- deltaIdx
+        filter!(x -> x >= firstIdx, newIdx)
+        idxWave = newIdx .+ deltaIdx
+    else
+        deltaIdx = 0
+        newIdx = idxWave .- deltaIdx
+    end
+
 
     newNx = zero(viDist.nx)
     newNx[newIdx] = viDist.nx[idxWave]
 
     newHx = zero(viDist.hx)
-    newHx[1:last(newIdx)] = viDist.hx[deltaIdx:last(idxWave)]
+    newHx[1:last(newIdx)] = viDist.hx[(1+deltaIdx):last(idxWave)]
 
     newSpace = viDist.space .+ deltaIdx
 
